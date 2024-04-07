@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sell Your Book</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('main.jpeg'); /* Set background image */
+            background-size: cover; /* Ensure the background image covers the entire background */
+            background-position: center; /* Center the background image */
+            margin: 0;
+            padding: 0;
+}
+
+
+        .header-container {
+            background-color: #00D1D1; /* Header container background color */
+            color: #fff; /* Header text color */
+            padding: 20px 0; /* Adjusted padding */
+            text-align: center;
+        }
+
+        h2 {
+            margin-top: 0; /* Remove default margin */
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            opacity: 1; /* Set opacity to 100% */
+            width: 80%; /* Adjusted width */
+            max-width: 600px; /* Added max-width */
+            margin: 20px auto; /* Center align container */
+        }
+
+        h3 {
+            color: #333;
+        }
+
+        form {
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        select,
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        input[type="submit"] {
+            background-color: #0056b3; /* Changed button color */
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #004080; /* Darker color on hover */
+        }
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        <h2>Hey there! What are you selling today?</h2>
+    </div>
+    <div class="container">
+        <form action="/submit" method="post">
+            <label for="bookName">Book Name:</label><br>
+            <input type="text" id="bookName" name="bookName" required placeholder="Enter the book name"><br><br>
+
+            <label for="authorName">Author Name:</label><br>
+            <input type="text" id="authorName" name="authorName" required placeholder="Enter author name"><br><br>
+
+            <label for="edition">Edition:</label><br>
+            <input type="text" id="edition" name="edition" placeholder="Enter edition of the book"><br><br>
+
+            <h3>Upload Book Images</h3>
+            <label for="frontPageImage">Upload book's front page picture:</label>
+            <input type="file" id="frontPageImage" name="frontPageImage" accept="image/*"><br><br>
+
+            <label for="backPageImage">Upload book's back page picture:</label>
+            <input type="file" id="backPageImage" name="backPageImage" accept="image/*"><br><br>
+
+            <label for="editionPageImage">Upload edition page of book:</label>
+            <input type="file" id="editionPageImage" name="editionPageImage" accept="image/*"><br><br>
+
+            <label for="language">Choose the language:</label>
+            <select id="language" name="language">
+                <option value="English">English</option>
+                <option value="Hindi">Hindi</option>
+            </select><br><br>
+
+            <h3>Describe the condition of your book:</h3>
+            <label><input type="checkbox" name="damagedPages" value="damagedPages"> Damaged pages</label><br>
+            <label><input type="checkbox" name="markings" value="markings"> Markings made</label><br>
+            <label><input type="checkbox" name="missingPages" value="missingPages"> Missing pages</label><br><br>
+
+            <h3>Genre</h3>
+            <label for="genre">Choose Genre of book:</label><br>
+            <select id="genre" name="genre">
+                <option value="Senior Secondary">Senior Secondary</option>
+                <option value="High School">High School</option>
+                <option value="Law">Law</option>
+                <option value="Competitive Exams">Competitive Exams</option>
+                <option value="Novels">Novels</option>
+            </select><br><br>
+
+            <input type="submit" value="Submit">
+        </form>
+    </div>
+    
+</body>
+</html>

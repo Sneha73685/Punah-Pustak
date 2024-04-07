@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-image: url('main.jpeg');
+            background-size: cover;
+            background-position: center;
+            font-family: Arial, sans-serif;
+        }
+
+        #container {
+            max-width: 800px;
+            margin: 50px auto;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            height: 500px; /* Fixed height for scrollability */
+            overflow-y: auto; /* Enable vertical scrolling */
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #00D1D1;
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        #cartItems {
+            margin-bottom: 30px;
+        }
+
+        #cartList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #cartList li {
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #checkoutBtn {
+            width: 100%;
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 20px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #checkoutBtn:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <header>
+            <h1>Cart</h1>
+        </header>
+        <main>
+            <div id="cartItems">
+                <h2>Your Cart</h2>
+                <ul id="cartList">
+                    <!-- Cart items will be dynamically added here -->
+                </ul>
+            </div>
+            <button id="checkoutBtn" onclick="proceedToCheckout()">Proceed to Checkout</button>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Retrieve cart items from localStorage
+            var cartItems = JSON.parse(localStorage.getItem('cartItems'));
+
+            // Check if cart is empty
+            if (cartItems && cartItems.length > 0) {
+                var cartList = document.getElementById('cartList');
+
+                // Loop through cart items and add them to the list
+                cartItems.forEach(function (item) {
+                    var listItem = document.createElement('li');
+                    listItem.textContent = item;
+                    cartList.appendChild(listItem);
+                });
+            } else {
+                // If cart is empty, display a message
+                var cartList = document.getElementById('cartList');
+                var emptyMessage = document.createElement('li');
+                emptyMessage.textContent = 'Your cart is empty.';
+                cartList.appendChild(emptyMessage);
+            }
+        });
+
+        function proceedToCheckout() {
+            // Redirect to the checkout page
+            window.location.href = 'checkout.html';
+        }
+
+        function addToCart(item) {
+            // Retrieve the cart items from localStorage or initialize an empty array if it doesn't exist
+            let cartItems = JSON.parse(localStorage.getItem('cartItems')) || [];
+
+            // Add the selected item to the cart
+            cartItems.push(item);
+
+            // Save the updated cart items back to localStorage
+            localStorage.setItem('cartItems', JSON.stringify(cartItems));
+
+            // Scroll to the cart section
+            document.getElementById('cartItems').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Form</title>
+<style>
+body {
+    background-image: url("https://external-preview.redd.it/d6tC7-hOyuC__4Wy_5KcODi0fzEYwrnyvZSbD_wSXCs.jpg?auto=webp&s=2c71abb0192efe3d0d4aabde37523356811583dd");
+    background-repeat: no-repeat;
+    background-size: cover;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; /* Full viewport height */
+    margin: 0; /* Remove default margin */
+    font-family: Arial, sans-serif; /* Optional: Set a default font-family */
+}
+form {
+    border: 2px solid black;
+    padding: 20px;
+    background-color: #ffffff; /* Fixed typo: was #fffff */
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+button {
+    padding: 10px 20px; /* Optional: Add some padding to the buttons */
+    cursor: pointer; /* Optional: Change cursor to pointer on hover */
+    margin-top: 10px; /* Added margin for spacing */
+}
+</style>
+</head>
+<body>
+  <div id="login-box"="display:flex;justify-content:space-between">
+    <div class="left">
+      <h1>Login</h1>
+      <input type="text" id="email" name="email" placeholder="Email">
+      <input type="password" id="password" name="password" placeholder="password">
+
+      <input type="submit" id='Login' name="Login" value="Login">
+
+    </div>
+  </div>
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+    import { getDatabase, set, ref, update } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
+  
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+    
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyABW0tsAUwe1JuBzMWewhCzFjchY8s3lIs",
+      authDomain: "punah-pustak.firebaseapp.com",
+      databaseURL: "https://punah-pustak-default-rtdb.firebaseio.com",
+      projectId: "punah-pustak",
+      storageBucket: "punah-pustak.appspot.com",
+      messagingSenderId: "1026242357592",
+      appId: "1:1026242357592:web:21e858cf27157d70229d2d"
+    };
+    
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+    const auth = getAuth();
+  
+  
+  
+  Login.addEventListener('click',(e)=>{
+    var email = document.getElementById('email').value;
+    var password = document.getElementById('password').value;
+    const auth = getAuth();
+    signInWithEmailAndPassword(auth, email, password)
+    .then((userCredential) => {
+    // Signed in 
+    
+    const user = userCredential.user;
+    const dt = new Date();
+  
+    update(ref(database, 'users/' + user.uid),{
+      last_login: dt,
+    })
+    alert("Signed In Succesfully");
+    window.location.href = 'index.html';
+    // ...
+    })
+    .catch((error) => {
+    const errorCode = error.code;
+    const errorMessage = error.message;
+  
+    alert('Invalid Login Credentials');
+    }); 
+  });
+  const user = auth.currentUser;
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+    // User is signed in, see docs for a list of available properties
+    // https://firebase.google.com/docs/reference/js/auth.user
+    const uid = user.uid;
+    // ...
+    } else {
+    // User is signed out
+    // ...
+    }
+  });
+    </script>
+
+
+
+
+
+</body>
+</html>

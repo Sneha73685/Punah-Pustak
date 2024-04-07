@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-image: url('main.jpeg');
+            background-size: cover;
+            background-position: center;
+            font-family: Arial, sans-serif;
+        }
+
+        #catalogContainer,
+        #cartContainer {
+            max-width: 800px;
+            margin: 50px auto;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            height: 500px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #00D1D1;
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        table {
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        img {
+            max-width: 100px;
+            height: auto;
+        }
+
+        .add-to-cart-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #11b4fa;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .add-to-cart-btn:hover {
+            background-color: #0a84b4;
+        }
+
+        #cartList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #cartList li {
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            position: relative;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: #ff4136;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            line-height: 20px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .price {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        #checkoutBtn {
+            width: 100%;
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 20px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #checkoutBtn:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="catalogContainer">
+        <header>
+            <h1>Catalogue</h1>
+        </header>
+        <form id="catalogue-form">
+            <table cellspacing="10">
+                <tr>
+                    <td><img src="logo.png" alt="HTML5 and CSS3" width="100" height="100"></td>
+                    <td>Title : HTML5 and CSS3 <br> Author : Sasha Vodnik&nbsp; &nbsp;<br> </td>
+                    <td>Price : 700 /-</td>
+                    <td><button type="button" class="add-to-cart-btn" onclick="addToCart('HTML5 and CSS3', 700)">Add to Cart</button></td>
+                </tr>
+                <tr>
+                    <td><img src="logo.png" alt="PHP and MYSQL" width="100" height="100"></td>
+                    <td>Title : PHP and MYSQL <br> Author : W. Jason Gilmore&nbsp; &nbsp;<br> </td>
+                    <td>Price : 650 /-</td>
+                    <td><button type="button" class="add-to-cart-btn" onclick="addToCart('PHP and MYSQL', 650)">Add to Cart</button></td>
+                </tr>
+                <tr>
+                    <td><img src="logo.png" alt="The Complete Reference JAVA 2" width="100" height="100"></td>
+                    <td>Title : The Complete Reference JAVA 2 <br> Author : Herbert Schildt &nbsp; &nbsp;<br> </td>
+                    <td>Price : 850 /-</td>
+                    <td><button type="button" class="add-to-cart-btn" onclick="addToCart('The Complete Reference JAVA 2', 850)">Add to Cart</button></td>
+                </tr>
+            </table>
+        </form>
+    </div>
+
+    <div id="cartContainer">
+        <header>
+            <h1>Cart</h1>
+        </header>
+        <main>
+            <div id="cartItems">
+                <h2>Your Cart</h2>
+                <ul id="cartList">
+                    <!-- Cart items will be dynamically added here -->
+                </ul>
+            </div>
+            <button id="checkoutBtn" onclick="proceedToCheckout()">Proceed to Checkout</button>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Retrieve cart items from localStorage
+            var cartItems = JSON.parse(localStorage.getItem('cartItems'));
+
+            // Check if cart is empty
+            if (cartItems && cartItems.length > 0) {
+                var cartList = document.getElementById('cartList');
+
+                // Loop through cart items and add them to the list
+                cartItems.forEach(function (item) {
+                    var itemData = item.split(';'); // Splitting item data (name and price)
+                    var listItem = document.createElement('li');
+                    listItem.innerHTML = `
+                        ${itemData[0]} <span class="price">Price: ${itemData[1]} /-</span>
+                        <button class="remove-btn" onclick="removeFromCart(this)">-</button>`;
+                    cartList.appendChild(listItem);
+                });
+            } else {
+                // If cart is empty, display a message
+                var cartList = document.getElementById('cartList');
+                var emptyMessage = document.createElement('li');
+                emptyMessage.textContent = 'Your cart is empty.';
+                cartList.appendChild(emptyMessage);
+            }
+        });
+
+        function proceedToCheckout() {
+            // Redirect to the checkout page
+            window.location.href = 'checkout.html';
+        }
+
+        function addToCart(item, price) {
+            // Retrieve the cart items from localStorage or initialize an empty array if it doesn't exist
+            let cartItems = JSON.parse(localStorage.getItem('cartItems')) || [];
+
+            // Add the selected item and its price to the cart as a single string
+            cartItems.push(`${item};${price}`);
+
+            // Save the updated cart items back to localStorage
+            localStorage.setItem('cartItems', JSON.stringify(cartItems));
+
+            // Scroll to the cart section
+            document.getElementById('cartContainer').scrollIntoView({ behavior: 'smooth' });
+
+            // Update the cart display
+            updateCartDisplay();
+        }
+
+        function removeFromCart(button) {
+            var listItem = button.parentElement;
+            var itemName = listItem.textContent.split('Price')[0].trim(); // Extract item name
+            var cartItems = JSON.parse(localStorage.getItem('cartItems'));
+
+            // Remove the item from the cart
+            cartItems = cartItems.filter(function (item) {
+                return item.split(';')[0].trim() !== itemName;
+            });
+
+            // Save the updated cart items back to localStorage
+            localStorage.setItem('cartItems', JSON.stringify(cartItems));
+
+            // Remove the item from the cart list
+            listItem.remove();
+
+            // Update the cart display
+            updateCartDisplay();
+        }
+
+        function updateCartDisplay() {
+            var cartItems = JSON.parse(localStorage.getItem('cartItems'));
+            var cartList = document.getElementById('cartList');
+
+            // Clear the current cart list
+            cartList.innerHTML = '';
+
+            if (cartItems && cartItems.length > 0) {
+                // Loop through cart items and add them to the list
+                cartItems.forEach(function (item) {
+                    var itemData = item.split(';'); // Splitting item data (name and price)
+                    var listItem = document.createElement('li');
+                    listItem.innerHTML = `
+                        ${itemData[0]} <span class="price">Price: ${itemData[1]} /-</span>
+                        <button class="remove-btn" onclick="removeFromCart(this)">-</button>`;
+                    cartList.appendChild(listItem);
+                });
+            } else {
+                // If cart is empty, display a message
+                var emptyMessage = document.createElement('li');
+                emptyMessage.textContent = 'Your cart is empty.';
+                cartList.appendChild(emptyMessage);
+            }
+        }
+    </script>
+</body>
+
+</html>

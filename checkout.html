@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout</title>
+    <style>
+        body {
+            background-image: url('main.jpeg'); /* Add background image */
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-size: cover; /* Ensure the background image covers the entire background */
+            background-position: center;
+        }
+
+        #container {
+            max-width: 800px;
+            margin: 50px auto;
+            background-color: #5a5959;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            opacity:1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #00D1D1;
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        #items {
+            margin-bottom: 30px;
+        }
+
+        #selectedItems {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #selectedItems li {
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #checkoutContainer {
+            background-color: #00D1D1;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.);
+            opacity: 0.7;
+        }
+
+        #checkoutForm h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #fff;
+            text-align: center;
+        }
+
+        #checkoutForm input {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #checkoutForm button {
+            width: 100%;
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 20px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #checkoutForm button:hover {
+            background-color: #555;
+        }
+
+        #totalPrice {
+            color: #fff;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <header>
+            <h1>Checkout</h1>
+        </header>
+        <main>
+            <div id="items">
+                <h2>Your Cart</h2>
+                <ul id="selectedItems">
+                    <!-- Display selected items here -->
+                </ul>
+            </div>
+            <div id="checkoutContainer">
+                <div id="checkoutForm">
+                    <h2>Shipping Information</h2>
+                    <input type="text" id="name" placeholder="Name" required><br>
+                    <input type="email" id="email" placeholder="Email" required><br>
+                    <input type="text" id="address" placeholder="Address" required><br>
+                    <input type="text" id="city" placeholder="City" required><br>
+                    <input type="text" id="zipcode" placeholder="Zip Code" required><br>
+
+                    <h2>UPI Payment</h2>
+                    <input type="text" id="upiId" placeholder="UPI ID" required><br>
+                    <button onclick="initiatePayment()">Proceed to Pay</button>
+
+                    <!-- Display total price -->
+                    <h2 id="totalPrice">Total Price: <span></span></h2>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Retrieve selected items from localStorage
+            var selectedItems = JSON.parse(localStorage.getItem('cartItems'));
+
+            // Calculate total price
+            var totalPrice = 0;
+            if (selectedItems && selectedItems.length > 0) {
+                selectedItems.forEach(function (item) {
+                    var itemDetails = item.split(';'); // Split item and price
+                    var price = parseFloat(itemDetails[1]); // Extract price
+                    totalPrice += price; // Sum up prices
+
+                    // Display item details
+                    var itemLi = document.createElement('li');
+                    itemLi.textContent = itemDetails[0] + ' - Price: ' + itemDetails[1];
+                    document.getElementById('selectedItems').appendChild(itemLi);
+                });
+            }
+
+            // Display total price
+            document.getElementById('totalPrice').getElementsByTagName('span')[0].textContent = totalPrice.toFixed(2); // Format to two decimal places
+        });
+
+        function initiatePayment() {
+            // Fetch form data
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const address = document.getElementById('address').value;
+            const city = document.getElementById('city').value;
+            const zipcode = document.getElementById('zipcode').value;
+            const upiId = document.getElementById('upiId').value;
+
+            // Validate form fields
+            if (!name || !email || !address || !city || !zipcode || !upiId) {
+                alert('Please fill in all fields.');
+                return;
+            }
+
+            // Generate payment request
+            const paymentRequest = {
+                amount: document.getElementById('totalPrice').getElementsByTagName('span')[0].textContent, // Get total price
+                upiId: upiId,
+                name: name,
+                email: email,
+                address: address,
+                city: city,
+                zipcode: zipcode
+            };
+
+            // Send payment request to server for processing
+            // Example: Use AJAX to send a POST request to a server endpoint
+            // For demonstration purposes, log the payment request to console
+            console.log('Payment request:', paymentRequest);
+        }
+    </script>
+</body>
+
+</html>

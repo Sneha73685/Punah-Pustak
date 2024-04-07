@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset = "UTF-8">
+		<meta http-equiv = "X-UA-Compatible" content = "IE = edge">
+		<meta name = "viewport" content = "width = device-width, initial-scale = 1.0">
+		
+		<script src = "https://code.jquery.com/jquery-3.5.1.min.js"></script>
+		<script src = "https://cdnjs.cloudflare.com/ajax/libs/typed.js/2.0.11/typed.min.js"></script>
+		<script src = "https://cdnjs.cloudflare.com/ajax/libs/waypoints/4.0.1/jquery.waypoints.min.js"></script>
+		<script src = "https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js"></script>
+		
+		<link rel = "icon" href = "logo.png" />
+		<link rel = "stylesheet" href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"/>
+		<link rel = "stylesheet" href = "https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.carousel.min.css"/>
+		<link rel = "stylesheet" href = "./style.css">
+		<title>Punah-पुस्तक</title>
+	
+	</head>
+	<body>
+		<div class = "scroll-up-btn">
+			<i class = "fas fa-angle-up"></i>
+		</div>
+		<nav class = "navbar">
+			<div class = "max-width">
+				<div class = "logo"><a href = "#">Punah<span>-पुस्तक</span></a></div>
+				<ul class = "menu">
+					<li><a href = "#home" class = "menu-btn">Home</a></li>
+					<li><a href = "#skills" class = "menu-btn">Login</a></li>
+					<li><a href = "Registration.html" class = "menu-btn">Register</a></li>
+					<li><a href = "seller.html" class = "menu-btn">Sell</a></li>
+					<li><a href = "cata.html" class = "menu-btn">Catalogue </a></li>
+					<li><a href = "#contact" class = "menu-btn">Contact Us</a></li>
+				</ul>
+				<div class = "menu-btn">
+					<i class = "fas fa-bars"></i>
+				</div>
+			</div>
+		</nav>
+	
+		<!-- home section start -->
+		<section class = "home" id = "home">
+			<div class = "max-width">
+				<div class = "home-content">
+					<div class = "text-1">We are </div>
+					<div class = "text-2">The Premier Online Marketplace for Second-hand Books.</div>
+					<div class = "text-3">And we make Books <span class = "typing"></span></div>
+					<a href="Registration.html" class="btn-container"><span class="button">Grab yours Now!</span></a></li>
+				</div>
+			</div>
+		</section>
+	
+		<!-- about section start -->
+		<section class = "about" id = "about">
+			<div class = "max-width">
+				<h2 class = "title">About Us </h2>
+				<div class = "about-content">
+					<div class = "column left">
+						<img src="logo.png" alt="">
+					</div>
+					<div class = "column right">
+						<div class = "text"> Punah-पुस्तक <span class = "typing-2"></span></div>
+						
+						<h1 class="summary"> </h1>
+						
+						<p>
+							<ul>
+								<li>
+									At Punah-पुस्तक , we connect students with affordable, high-quality used textbooks, fostering academic success and environmental sustainability. By promoting reuse and recycling, we reduce the financial strain of textbook costs while minimizing the environmental impact of production. Our vision is to democratize education and promote a greener future. We might seem similar to any e-commerce website but we sure do have our uniqueness.
+								</li>
+								<li>
+									<b>Affordable Access:</b> Our platform offers students access to a wide range of affordable, high-quality used textbooks, helping to alleviate the financial burden associated with purchasing new textbooks.
+								</li>
+								<li>
+									<b>Convenience and Efficiency:</b> With user-friendly search and purchasing features, students can quickly find and acquire the textbooks they need, saving time and effort during busy academic semesters.
+								</li>
+								<li>
+									<b>Sustainability:</b> By promoting the reuse of textbooks, our platform contributes to environmental sustainability by reducing the demand for new textbook production and minimizing waste in the publishing industry.            </li>
+							</ul>
+						</p>
+						<a href = "Registration.html">Register</a>
+					</div>
+				</div>
+			</div>
+		</section>
+	
+		<!-- project section start -->
+		<section class="projects" id="projects">
+			<div class="max-width">
+				<h2 class="title">Our Functionalities</h2>
+				<div class="proj-content">
+					<div class="card">
+						<div class="box">
+							<div class="text">Want to Sell Your Old Books?</div>
+							<p>
+								<ul>
+									<li>You can sell your old books to us and we will offer you a justified amount for it.</li>
+									<a href="seller.html" class="btn-container"><span class="button">Sell Books</span></a>
+								</ul>
+							</p>
+						</div>
+					</div>
+					<div class="card">
+						<div class="box">
+							<div class="text">Searching for Used Books?</div>
+							<p>
+								<ul>
+									<li>We are here with a range of used books available at an affordable price.</li>
+									<a href="cata.html" class="btn-container"><span class="button">Buy Books</span></a></li>
+								</ul>
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+		
+		
+		<!-- skills section start -->
+		<section class="skills" id="skills" style="display: flex; justify-content: center; align-items: center;">
+			<div class="max-width">
+				<h2 class="title">Login with Email</h2>
+				<div class="skills-content">
+					<div id="login-box">
+						<div class="left" style="text-align: center;">
+							<input type="text" id="email" name="email" placeholder="Email" style="padding: 10px; margin: 10px; border-radius: 5px; border: 1px solid #ccc;">
+							<br>
+							<input type="password" id="password" name="password" placeholder="Password" style="padding: 10px; margin: 10px; border-radius: 5px; border: 1px solid #ccc;">
+							<br>
+							<input type="submit" id='Login' name="Login" value="Login" style="padding: 10px 20px; margin: 10px; border: none; border-radius: 5px; background-color: #00D1D1; color: #fff; cursor: pointer; transition: background-color 0.3s;">	
+						</div>
+					  </div>
+					  <script type="module">
+						// Import the functions you need from the SDKs you need
+						import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+						import { getDatabase, set, ref, update } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
+						import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js";
+					  
+						// TODO: Add SDKs for Firebase products that you want to use
+						// https://firebase.google.com/docs/web/setup#available-libraries
+						
+						// Your web app's Firebase configuration
+						const firebaseConfig = {
+						  apiKey: "AIzaSyABW0tsAUwe1JuBzMWewhCzFjchY8s3lIs",
+						  authDomain: "punah-pustak.firebaseapp.com",
+						  databaseURL: "https://punah-pustak-default-rtdb.firebaseio.com",
+						  projectId: "punah-pustak",
+						  storageBucket: "punah-pustak.appspot.com",
+						  messagingSenderId: "1026242357592",
+						  appId: "1:1026242357592:web:21e858cf27157d70229d2d"
+						};
+						
+						// Initialize Firebase
+						const app = initializeApp(firebaseConfig);
+						const database = getDatabase(app);
+						const auth = getAuth();
+					  
+					  
+					  
+					  Login.addEventListener('click',(e)=>{
+						var email = document.getElementById('email').value;
+						var password = document.getElementById('password').value;
+						const auth = getAuth();
+						signInWithEmailAndPassword(auth, email, password)
+						.then((userCredential) => {
+						// Signed in 
+						
+						const user = userCredential.user;
+						const dt = new Date();
+					  
+						update(ref(database, 'users/' + user.uid),{
+						  last_login: dt,
+						})
+						alert("Signed In Succesfully");
+						window.location.href = 'cata.html';
+						// ...
+						})
+						.catch((error) => {
+						const errorCode = error.code;
+						const errorMessage = error.message;
+					  
+						alert('Invalid Login Credentials');
+						}); 
+					  });
+					  const user = auth.currentUser;
+					  onAuthStateChanged(auth, (user) => {
+						if (user) {
+						// User is signed in, see docs for a list of available properties
+						// https://firebase.google.com/docs/reference/js/auth.user
+						const uid = user.uid;
+						// ...
+						} else {
+						// User is signed out
+						// ...
+						}
+					  });
+						</script>
+		</section>
+	
+		<!-- Education section start-->
+		<section class = "Education" id = "Education">
+			<div class = "max-width">
+				<h2 class = "title"> Our Beneficiaries </h2>
+				<div class = "carousel owl-carousel">
+					<div class = "card">
+						<div class = "box">
+							
+							<div class = "text">Bibliophile<br></div>
+							<p>This group consists of avid readers who enjoy exploring a wide range of genres and authors. They appreciate the opportunity to discover hidden gems and expand their personal libraries affordably.</p>
+						</div>
+					</div>
+					<div class = "card">
+						<div class = "box">
+							
+							<div class = "text">Students<br></div>
+							<p>College and university students represent a significant portion of our target audience, as they often seek cost-effective options for textbooks and supplementary reading materials.</p>
+						</div>
+					</div>
+					<div class = "card">
+						<div class = "box">
+							
+							<div class = "text">Budget-Conscious Consumers<br> </div>
+							<p>Individuals who prioritize saving money and finding bargains are attracted to the competitive pricing of used books compared to new ones.</p>
+						</div>
+					</div>
+					<div class = "card">
+						<div class = "box">
+							
+							<div class = "text"> Eco-Conscious Consumers <br></div>
+							<p>People who are environmentally conscious appreciate the sustainable aspect of buying second-hand books, as it reduces the demand for new paper production and decreases waste.</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+		<!-- contact section start -->
+		<section class = "contact" id = "contact">
+			<div class = "max-width">
+				<h2 class = "title">Contact Us</h2>
+				<div class = "contact-content">
+					<div class = "column left">
+						<div class = "text">Get in touch with us</div>
+						<p>Below are my details, you can mail us on the below E-mail address or can directly message us by entering the adjacent details : </p>
+						<div class = "icons">
+							<div class = "row">
+								<i class = "fas fa-user"></i>
+								<div class = "info">
+									<div class = "head">Name</div>
+									<div class = "sub-title">Punah Pustak</div>
+								</div>
+							</div>
+							<div class = "row">
+								<i class = "fas fa-map-marker-alt"></i>
+								<div class = "info">
+									<div class = "head">Address</div>
+									<div class = "sub-title">Knowledge Park 2,GL Bajaj,GB Nagar,India.</div>
+								</div>
+							</div>
+							<div class = "row">
+								<i class = "fas fa-envelope"></i>
+								<div class = "info">
+									<div class = "head">Email</div>
+									<div class = "sub-title">punah-pustak123@gmail.com</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class = "column right">
+						<div class = "text">Message Us</div>
+						<form action = "#">
+							<div class = "fields">
+								<div class = "field name">
+									<input type = "text" placeholder = "Name" required>
+								</div>
+								<div class = "field email">
+									<input type = "email" placeholder = "Email" required>
+								</div>
+							</div>
+							<div class = "field">
+								<input type = "text" placeholder = "Subject" required>
+							</div>
+							<div class = "field textarea">
+								<textarea cols = "30" rows = "10" placeholder = "Message.." required></textarea>
+							</div>
+							<div class = "button-area">
+								<button type = "submit">Send message</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</section>
+	
+		<!-- footer section start -->
+		<footer>
+			<span>Created By Team Null at Hackaccino| <span class = "far fa-copyright"></span> 2024 All rights reserved.</span>
+		</footer>
+	
+		<script src = "./style.js"></script>
+		<script>
+			function redirectToRegister() {
+				// Ask the user to register before proceeding
+				var proceed = confirm("Please register before selling. Do you want to register now?");
+				return proceed;
+			}
+		</script>
+	</body>
+</html>
