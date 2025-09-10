@@ -8,7 +8,7 @@ Punah-पुस्तक is an online marketplace dedicated to buying and sellin
 
 ## Key Features
 
-- **Buy Second-hand Books**: Browse through a diverse collection of second-hand books across various genres and subjects, ensuring quality reads at pocket-friendly prices.
+- **Buy Second-hand Books**: Browse through a diverse collection of second-hand books across various geres and subjects, ensuring quality reads at pocket-friendly prices.
 
 - **Sell Your Books**: Easily list your preloved books for sale on our platform, connecting with potential buyers looking for great deals on used books.
 
