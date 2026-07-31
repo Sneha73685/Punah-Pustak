@@ -140,3 +140,23 @@ class RateLimitExceededError(DomainError):
 
     def __init__(self) -> None:
         super().__init__("Too many requests. Please try again later.")
+
+
+class PasswordChangeRequiredError(DomainError):
+    """FR-015: the authenticated user's account has `must_change_password`
+    set (via FR-045's admin-assisted reset) and is attempting an
+    authenticated action other than the password-change endpoint itself.
+
+    Raised by `get_current_user` on every request — the same single choke
+    point every other module already depends on for identity — so this is
+    enforced globally with no per-router change required anywhere else.
+    `get_current_user_for_password_change` is the one deliberate exception:
+    the password-change endpoint has to resolve the caller's identity
+    without tripping this same check, or a user could never satisfy it.
+    """
+
+    status_code = 403
+    code = "PASSWORD_CHANGE_REQUIRED"
+
+    def __init__(self) -> None:
+        super().__init__("You must change your password before continuing.")

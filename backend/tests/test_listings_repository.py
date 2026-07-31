@@ -264,6 +264,52 @@ class TestStatusTransitions:
         assert listing.author == "An Author"  # untouched
 
 
+class TestCountByOwnerStatus:
+    """FR-032 at the repository layer: the `GROUP BY` query in
+    `count_by_owner_status` (§ Milestone 3).
+    """
+
+    def test_counts_each_status_and_zero_fills_the_rest(self, db_session: Session) -> None:
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        available = _make_listing(repo, owner.id, title="Available Book")
+        sold = _make_listing(repo, owner.id, title="Sold Book")
+        repo.mark_sold(sold)
+        assert available.status == ListingStatusEnum.AVAILABLE  # left untouched
+
+        counts = repo.count_by_owner_status(owner.id)
+
+        assert counts == {
+            ListingStatusEnum.AVAILABLE: 1,
+            ListingStatusEnum.SOLD: 1,
+            ListingStatusEnum.DELETED: 0,
+        }
+
+    def test_no_listings_returns_all_zeros(self, db_session: Session) -> None:
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+
+        counts = repo.count_by_owner_status(owner.id)
+
+        assert counts == {
+            ListingStatusEnum.AVAILABLE: 0,
+            ListingStatusEnum.SOLD: 0,
+            ListingStatusEnum.DELETED: 0,
+        }
+
+    def test_scoped_to_the_given_owner_only(self, db_session: Session) -> None:
+        owner = _make_owner(db_session)
+        other = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        _make_listing(repo, owner.id, title="Mine")
+        _make_listing(repo, other.id, title="Not Mine")
+        _make_listing(repo, other.id, title="Also Not Mine")
+
+        counts = repo.count_by_owner_status(owner.id)
+
+        assert counts[ListingStatusEnum.AVAILABLE] == 1
+
+
 class TestImages:
     def test_count_images(self, db_session: Session) -> None:
         owner = _make_owner(db_session)

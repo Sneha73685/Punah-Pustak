@@ -22,6 +22,34 @@ from app.core.db import _with_transactional_lifecycle, engine, get_db
 from app.core.rate_limit import auth_rate_limiter
 from app.main import app
 
+_REGISTER_PATH = "/api/v1/auth/register"
+_LOGIN_PATH = "/api/v1/auth/login"
+_DEFAULT_TEST_PASSWORD = "a-long-enough-password"
+
+
+def register_and_login(
+    client: TestClient, email: str, password: str = _DEFAULT_TEST_PASSWORD
+) -> str:
+    """Registers a new account and logs in, returning the access token.
+
+    Shared here (Milestone 3 audit) because `test_auth_api.py`,
+    `test_listings_api.py`, and `test_users_api.py` had each independently
+    written this exact "register then log in" setup step under three
+    different names (`_registered_and_logged_in`, and two copies of
+    `_register_and_login`) with no behavioral difference between them —
+    duplicate logic that had also drifted into inconsistent naming across
+    files. Centralizing it here doesn't change what any existing test
+    does; it only removes three near-identical private copies of the same
+    ten lines.
+    """
+    register_response = client.post(
+        _REGISTER_PATH, json={"email": email, "password": password, "display_name": "Reader"}
+    )
+    assert register_response.status_code == 201, register_response.text
+    login_response = client.post(_LOGIN_PATH, json={"email": email, "password": password})
+    assert login_response.status_code == 200, login_response.text
+    return str(login_response.json()["access_token"])
+
 
 def _test_settings() -> Settings:
     """`cookie_secure=False`, matching the non-TLS reality both of local dev

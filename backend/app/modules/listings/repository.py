@@ -131,6 +131,29 @@ class ListingRepository:
         self._db.flush()
         return listing
 
+    def count_by_owner_status(self, owner_id: uuid.UUID) -> dict[ListingStatusEnum, int]:
+        """FR-032: "a summary of their own listings' counts by status."
+
+        A single `GROUP BY` query rather than three separate `COUNT(*)`
+        queries (one per status) or fetching every row and counting in
+        Python — `get_by_owner` (FR-025) already exists for "give me every
+        row"; this method exists specifically because a status *summary*
+        shouldn't need to transfer and deserialize every listing row (with
+        its eagerly-`selectinload`-ed images) just to produce three
+        integers. Every status is present in the returned dict even at
+        zero — the caller (the service layer) should never need to
+        special-case "this status had no listings" as "the key is missing".
+        """
+        query = (
+            select(Listing.status, func.count())
+            .where(Listing.owner_id == owner_id)
+            .group_by(Listing.status)
+        )
+        counts: dict[ListingStatusEnum, int] = {}
+        for listing_status, count in self._db.execute(query):
+            counts[listing_status] = count
+        return {status: counts.get(status, 0) for status in ListingStatusEnum}
+
     def count_images(self, listing_id: uuid.UUID) -> int:
         query = (
             select(func.count())

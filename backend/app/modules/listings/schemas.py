@@ -79,6 +79,22 @@ class ListingPublic(BaseModel):
     images: list[ListingImagePublic]
 
 
+class ListingStatusSummary(BaseModel):
+    """FR-032: "a summary of their own listings' counts by status." Explicit
+    fields for the three fixed status values — not a dynamically-keyed
+    `dict[str, int]` — for the same reason `category`/`condition` are fixed
+    enums rather than free-text (§10.3/10.4): exactly three values that
+    change on the order of "never", so a typed, self-documenting shape
+    (each key visible in the OpenAPI schema, per API-021) is the
+    right-sized choice over a schema-less mapping a client would have to
+    infer the keys of.
+    """
+
+    available: int
+    sold: int
+    deleted: int
+
+
 class ListingPage(BaseModel):
     """API-003: pagination metadata shaped as total/page/page_size — never
     a raw offset — so the contract could be swapped to cursor-based later
