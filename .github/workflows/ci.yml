@@ -1,0 +1,106 @@
+name: CI
+
+# Milestone 0 scope (SRS §23) was lint + type-check only, since the only
+# endpoint was a health check with no meaningful business-logic tests to
+# gate on. Milestone 1 (auth) is the first milestone with real unit,
+# integration, and API-level tests, so `backend-tests` (with a real,
+# containerized Postgres service, matching docker-compose.yml's `db`
+# service) is added here per TEST-020/§18.4 — accessibility checks stay
+# deferred until there is a frontend (Milestone 5/6) to run them against.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend-lint-typecheck:
+    name: Backend / lint + type-check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Ruff lint (BE-040, NFR-004)
+        run: ruff check .
+
+      - name: Ruff format check (BE-040, NFR-004)
+        run: ruff format --check .
+
+      - name: mypy strict (BE-040, NFR-003)
+        run: mypy app alembic tests
+
+  backend-tests:
+    name: Backend / unit + integration + API tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      # Mirrors docker-compose.yml's `db` service. TEST-002 forbids
+      # SQLite-as-a-stand-in (citext/enums/tsvector don't behave
+      # identically), so this MUST be real Postgres, not an in-memory swap.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: punah
+          POSTGRES_PASSWORD: punah
+          POSTGRES_DB: punah_pustak
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U punah -d punah_pustak"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://punah:punah@localhost:5432/punah_pustak
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Apply migrations (DEPLOY-022 — explicit step, not on app boot)
+        run: alembic upgrade head
+
+      - name: pytest (TEST-001/002/003, randomized order via pytest-randomly)
+        run: pytest
+
+  frontend-typecheck:
+    name: Frontend / type-check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript strict type-check (FE-001)
+        run: npx tsc --noEmit

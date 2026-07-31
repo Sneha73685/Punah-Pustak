@@ -1,0 +1,24 @@
+# --- Environment ------------------------------------------------------------
+# DEPLOY-002: .env MUST be gitignored; .env.example is the committed template.
+.env
+*.env
+!.env.example
+
+# --- Backend (Python) --------------------------------------------------------
+backend/.venv/
+backend/**/__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Frontend (Node) ----------------------------------------------------------
+frontend/node_modules/
+frontend/dist/
+
+# --- Editors / OS -------------------------------------------------------------
+.DS_Store
+.idea/
+.vscode/
