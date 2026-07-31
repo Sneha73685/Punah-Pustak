@@ -17,14 +17,29 @@ services:
       timeout: 5s
       retries: 10
 
-  # S3-compatible object storage (BE-030). Only used starting Milestone 2,
-  # but included now per DEPLOY-001's fixed four-service compose definition.
+  # S3-compatible object storage (BE-030), used starting Milestone 2.
+  #
+  # MINIO_API_CORS_ALLOW_ORIGIN (BE-031): MinIO Community Edition — the
+  # open-source server image used here — does NOT implement the S3
+  # bucket-CORS API (PutBucketCors/GetBucketCors return 501 Not
+  # Implemented; verified directly against this image, RELEASE.2025-09-07,
+  # not assumed). That API is the mechanism a real S3-compatible provider
+  # (AWS S3, or MinIO's commercial AIStor) would use for BE-031's per
+  # -bucket CORS policy. This server-level environment variable is MinIO
+  # Community's documented equivalent — it applies the same
+  # Access-Control-Allow-Origin/-Methods response headers to every S3 API
+  # request, which is indistinguishable from bucket-level CORS at this
+  # project's scale (one bucket). See IMPLEMENTATION_SUMMARY.md for the
+  # full verification and the production note (real S3 configures this via
+  # bucket-level CORS as SRS-specified; nothing in `StorageBackend` or its
+  # implementation needs to know which mechanism is in effect).
   storage:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: punah-pustak-local
       MINIO_ROOT_PASSWORD: punah-pustak-local-secret
+      MINIO_API_CORS_ALLOW_ORIGIN: http://localhost:5173
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -35,6 +50,25 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # One-shot bucket provisioning (NFR-005: no manual post-steps beyond
+  # migrations). Creates the bucket used by STORAGE_BUCKET and sets it to
+  # anonymous-download so uploaded images are directly browser-fetchable —
+  # BE-031's CORS headers are meaningless without the bucket itself also
+  # being publicly readable. Runs once per `docker compose up` and exits;
+  # `--ignore-existing`/re-applying the same policy make it safe to re-run.
+  storage-init:
+    image: minio/mc:latest
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        mc alias set local http://storage:9000 punah-pustak-local punah-pustak-local-secret &&
+        mc mb --ignore-existing local/punah-pustak-listing-images &&
+        mc anonymous set download local/punah-pustak-listing-images
+    depends_on:
+      storage:
+        condition: service_healthy
 
   api:
     build:
@@ -48,6 +82,7 @@ services:
       AUTH_RATE_LIMIT_PER_MINUTE: "10"
       CORS_ALLOWED_ORIGINS: http://localhost:5173
       STORAGE_ENDPOINT_URL: http://storage:9000
+      STORAGE_PUBLIC_URL: http://localhost:9000
       STORAGE_BUCKET: punah-pustak-listing-images
       STORAGE_ACCESS_KEY: punah-pustak-local
       STORAGE_SECRET_KEY: punah-pustak-local-secret
@@ -58,6 +93,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic

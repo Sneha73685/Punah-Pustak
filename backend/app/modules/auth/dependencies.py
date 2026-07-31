@@ -51,6 +51,33 @@ def get_current_user(
     return user
 
 
+def get_current_user_optional(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> User | None:
+    """For endpoints that are genuinely public but behave differently for a
+    known requester — Milestone 2's `GET /listings/{id}` (FR-006a's
+    owner/admin visibility exception) is the first user of this.
+
+    Unlike `get_current_user`, ANY failure to authenticate (no header,
+    malformed token, expired token) resolves to `None` — treated as a
+    guest — rather than raising `InvalidAccessTokenError`. This is a
+    deliberate difference, not an oversight: a stale/expired access token
+    (15-minute TTL) is a routine, expected state for a logged-in user
+    who's simply been browsing for a while, and a genuinely public page
+    must not hard-fail for them — it should just render as if they were a
+    guest, exactly as it would for a visitor who was never logged in.
+    """
+    if credentials is None:
+        return None
+    try:
+        user_id = decode_access_token(credentials.credentials, settings)
+    except InvalidAccessTokenError:
+        return None
+    return UserService(db).get_by_id(user_id)
+
+
 def enforce_auth_rate_limit(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],

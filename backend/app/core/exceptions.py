@@ -47,6 +47,50 @@ class ValidationFailedError(DomainError):
     code = "VALIDATION_ERROR"
 
 
+class NotFoundError(DomainError):
+    """API-011's "404 not found" — including a soft-deleted resource for a
+    requester who isn't its owner or an admin (FR-006a's visibility rule).
+    """
+
+    status_code = 404
+    code = "NOT_FOUND"
+
+
+class ForbiddenError(DomainError):
+    """API-011's "403 authenticated but not authorized" — SEC-030's
+    ownership check failed. Distinct from `InvalidAccessTokenError` (401):
+    this requester IS who their token says, they just don't own the
+    resource they're trying to mutate.
+    """
+
+    status_code = 403
+    code = "FORBIDDEN"
+
+
+class ConflictError(DomainError):
+    """API-011's "409 state conflict" — the request is well-formed and the
+    requester is authorized, but the resource's current state makes the
+    operation invalid right now (e.g. FR-028: editing a `sold`/`deleted`
+    listing).
+    """
+
+    status_code = 409
+    code = "CONFLICT"
+
+
+class StorageUnavailableError(DomainError):
+    """NFR-007: object storage is temporarily unavailable — a listing
+    mutation that depends on it (image upload) must fail clearly rather
+    than partially succeed with missing images.
+    """
+
+    status_code = 503
+    code = "SERVICE_UNAVAILABLE"
+
+    def __init__(self) -> None:
+        super().__init__("Object storage is temporarily unavailable. Please try again shortly.")
+
+
 class InvalidCredentialsError(DomainError):
     """Login failed. Deliberately generic — never says which of email/password
     was wrong, to avoid account enumeration.
