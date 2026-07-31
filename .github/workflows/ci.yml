@@ -84,6 +84,12 @@ jobs:
       - name: pytest (TEST-001/002/003, randomized order via pytest-randomly)
         run: pytest
 
+      - name: Coverage threshold — services/repositories >= 85% (TEST-004)
+        run: >-
+          coverage report
+          --include="app/modules/*/service.py,app/modules/*/repository.py"
+          --fail-under=85
+
   frontend-typecheck:
     name: Frontend / type-check
     runs-on: ubuntu-latest

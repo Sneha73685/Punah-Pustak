@@ -59,3 +59,28 @@ class UserRepository:
                 fields={"email": ["An account with this email already exists."]},
             ) from exc
         return user
+
+    def update_display_name(self, user: User, display_name: str) -> User:
+        """FR-030. No uniqueness or format constraint beyond schema-level
+        length limits (§7.4 states none) — unlike `email`, `display_name` is
+        not an identifier.
+        """
+        user.display_name = display_name
+        self._db.flush()
+        return user
+
+    def set_password(self, user: User, password_hash: str) -> User:
+        """FR-031. Always clears `must_change_password`, regardless of
+        whether it was set — this is the only place in the codebase that
+        writes a new `password_hash` after registration (FR-045's admin
+        -assisted reset, Milestone 4, will be the other), and in both the
+        self-initiated and forced-change cases (FR-015) a successful
+        password change means the account is no longer in a
+        pending-forced-change state. Setting it to `False` when it was
+        already `False` is a harmless no-op, not a special case to branch
+        on.
+        """
+        user.password_hash = password_hash
+        user.must_change_password = False
+        self._db.flush()
+        return user

@@ -14,6 +14,7 @@ from httpx import Response
 
 from app.core.config import Settings, get_settings
 from app.modules.auth.router import _set_refresh_cookie
+from tests.conftest import register_and_login
 
 _REGISTER = "/api/v1/auth/register"
 _LOGIN = "/api/v1/auth/login"
@@ -37,17 +38,6 @@ def _register(
 
 def _login(client: TestClient, *, email: str, password: str = _PASSWORD) -> Response:
     return client.post(_LOGIN, json={"email": email, "password": password})
-
-
-def _registered_and_logged_in(client: TestClient, email: str) -> str:
-    """Registers + logs in; returns the access token. The refresh-token
-    cookie is picked up automatically by `client` (a `TestClient` persists
-    cookies across requests within a test, matching how a browser behaves).
-    """
-    assert _register(client, email=email).status_code == 201
-    response = _login(client, email=email)
-    assert response.status_code == 200
-    return str(response.json()["access_token"])
 
 
 class TestRegister:
@@ -154,7 +144,7 @@ class TestRefresh:
     """
 
     def test_normal_refresh_rotates_the_token(self, api_client: TestClient) -> None:
-        _registered_and_logged_in(api_client, "rotate@example.com")
+        register_and_login(api_client, "rotate@example.com")
         original_cookie = api_client.cookies.get("refresh_token")
         assert original_cookie is not None
 
@@ -169,7 +159,7 @@ class TestRefresh:
     def test_reusing_an_already_rotated_token_revokes_the_family(
         self, api_client: TestClient
     ) -> None:
-        _registered_and_logged_in(api_client, "reuse@example.com")
+        register_and_login(api_client, "reuse@example.com")
         original_cookie = api_client.cookies.get("refresh_token")
         assert original_cookie is not None
 
@@ -203,7 +193,7 @@ class TestRefresh:
 
 class TestLogout:
     def test_happy_path_revokes_refresh_token(self, api_client: TestClient) -> None:
-        access_token = _registered_and_logged_in(api_client, "logout@example.com")
+        access_token = register_and_login(api_client, "logout@example.com")
 
         response = api_client.post(_LOGOUT, headers={"Authorization": f"Bearer {access_token}"})
         assert response.status_code == 204
@@ -225,7 +215,7 @@ class TestLogout:
         assert response.json()["error"]["code"] == "UNAUTHORIZED"
 
     def test_is_idempotent(self, api_client: TestClient) -> None:
-        access_token = _registered_and_logged_in(api_client, "double-logout@example.com")
+        access_token = register_and_login(api_client, "double-logout@example.com")
         headers = {"Authorization": f"Bearer {access_token}"}
 
         first = api_client.post(_LOGOUT, headers=headers)

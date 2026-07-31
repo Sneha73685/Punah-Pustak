@@ -1,5 +1,5 @@
 """Listings endpoints (§12.2): browse, detail, create, edit, delete,
-mark-sold, image upload, and My Listings.
+mark-sold, image upload, My Listings, and My Listings' status summary.
 
 Per BE-001, this router contains no SQLAlchemy queries — only HTTP concerns
 (query/path/multipart parsing, response assembly) and calls into
@@ -8,11 +8,14 @@ service layer, handled centrally by `app.core.errors` — no `try/except`
 appears here.
 
 Two `APIRouter`s: `router` (prefix `/listings`) for everything under that
-resource path, and `my_listings_router` (prefix `/users/me`) for the one
-endpoint the SRS's own endpoint table (§12.2) places under `/users/me/listings`
-even though the data and business logic it returns are entirely owned by
-this module — module ownership follows the resource being returned
-(listings), not the URL prefix, so both routers are defined and owned here.
+resource path, and `my_listings_router` (prefix `/users/me`) for the two
+listings-owned endpoints under `/users/me/listings` — `GET /users/me/listings`
+(§12.2's endpoint table; Milestone 2) and `GET /users/me/listings/summary`
+(FR-032, not in §12.2's table but placed alongside its sibling for the same
+reason; Milestone 3) — even though both live under a URL prefix the SRS
+otherwise associates with the `users` module. Module ownership follows the
+resource being returned (listings), not the URL prefix, so both routers are
+defined and owned here.
 """
 
 import uuid
@@ -24,13 +27,19 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.modules.auth.dependencies import get_current_user, get_current_user_optional
-from app.modules.listings.models import Listing, ListingCategoryEnum, ListingConditionEnum
+from app.modules.listings.models import (
+    Listing,
+    ListingCategoryEnum,
+    ListingConditionEnum,
+    ListingStatusEnum,
+)
 from app.modules.listings.repository import ListingFilters, ListingRepository
 from app.modules.listings.schemas import (
     ListingCreate,
     ListingImagePublic,
     ListingPage,
     ListingPublic,
+    ListingStatusSummary,
     ListingUpdate,
 )
 from app.modules.listings.service import ListingService
@@ -250,3 +259,26 @@ def get_my_listings(
     service = _build_service(db, storage)
     listings = service.get_my_listings(current_user)
     return [_to_public(listing, db, storage) for listing in listings]
+
+
+@my_listings_router.get(
+    "/listings/summary",
+    response_model=ListingStatusSummary,
+    summary="My Listings' counts by status (FR-032)",
+)
+def get_my_listings_summary(
+    db: Annotated[Session, Depends(get_db)],
+    storage: Annotated[StorageBackend, Depends(get_storage_backend)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ListingStatusSummary:
+    # `storage` isn't used by this endpoint (there are no images in a
+    # summary), but `_build_service` requires it — kept for uniformity with
+    # every other endpoint in this router rather than a second
+    # service-construction helper for the one route that doesn't need it.
+    service = _build_service(db, storage)
+    counts = service.get_my_listings_summary(current_user)
+    return ListingStatusSummary(
+        available=counts[ListingStatusEnum.AVAILABLE],
+        sold=counts[ListingStatusEnum.SOLD],
+        deleted=counts[ListingStatusEnum.DELETED],
+    )

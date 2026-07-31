@@ -47,6 +47,7 @@ class ListingRepositoryProtocol(Protocol):
     def browse(self, *, filters: ListingFilters, page: int, page_size: int) -> Page: ...
     def get_by_id(self, listing_id: uuid.UUID) -> Listing | None: ...
     def get_by_owner(self, owner_id: uuid.UUID) -> list[Listing]: ...
+    def count_by_owner_status(self, owner_id: uuid.UUID) -> dict[ListingStatusEnum, int]: ...
     def create(
         self,
         *,
@@ -111,6 +112,14 @@ class ListingService:
         listing-by-id lookup.
         """
         return self._listings.get_by_owner(owner.id)
+
+    def get_my_listings_summary(self, owner: User) -> dict[ListingStatusEnum, int]:
+        """FR-032: counts of the caller's own listings by status. Scoped to
+        `owner.id` from the verified access token, same as `get_my_listings`
+        — no separate ownership check needed for the same reason that
+        method's docstring already gives.
+        """
+        return self._listings.count_by_owner_status(owner.id)
 
     def create(
         self,

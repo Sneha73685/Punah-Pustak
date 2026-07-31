@@ -117,6 +117,13 @@ class FakeListingRepository:
     def get_by_owner(self, owner_id: uuid.UUID) -> list[Listing]:
         return [listing for listing in self._by_id.values() if listing.owner_id == owner_id]
 
+    def count_by_owner_status(self, owner_id: uuid.UUID) -> dict[ListingStatusEnum, int]:
+        counts = dict.fromkeys(ListingStatusEnum, 0)
+        for listing in self._by_id.values():
+            if listing.owner_id == owner_id:
+                counts[listing.status] += 1
+        return counts
+
     def create(self, **kwargs: object) -> Listing:
         listing = _make_listing(owner_id=kwargs["owner_id"])  # type: ignore[arg-type]
         for key, value in kwargs.items():
@@ -503,3 +510,20 @@ class TestBrowseAndMyListings:
         result = service.get_my_listings(owner)
 
         assert [listing.id for listing in result] == [mine.id]
+
+    def test_my_listings_summary_scoped_to_owner_id_and_grouped_by_status(self) -> None:
+        owner = _make_user()
+        other = _make_user()
+        mine_available = _make_listing(owner_id=owner.id, status=ListingStatusEnum.AVAILABLE)
+        mine_sold = _make_listing(owner_id=owner.id, status=ListingStatusEnum.SOLD)
+        not_mine = _make_listing(owner_id=other.id, status=ListingStatusEnum.AVAILABLE)
+        repo = FakeListingRepository([mine_available, mine_sold, not_mine])
+        service = _service(repo)
+
+        summary = service.get_my_listings_summary(owner)
+
+        assert summary == {
+            ListingStatusEnum.AVAILABLE: 1,
+            ListingStatusEnum.SOLD: 1,
+            ListingStatusEnum.DELETED: 0,
+        }
