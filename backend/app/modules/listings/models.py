@@ -32,7 +32,7 @@ from sqlalchemy import (
 )
 from sqlalchemy import func as sa_func
 from sqlalchemy.dialects.postgresql import TSVECTOR, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Enum as SAEnum
 
 from app.core.db import Base, enum_values
@@ -154,6 +154,33 @@ class Listing(Base):
         nullable=True,
     )
 
+    # Milestone 0 left this module with bare FK columns only (no ORM-level
+    # relationship — see this module's own __init__.py: "search/filter...
+    # logic is Milestone 2 work"). `selectinload(Listing.images)` (used by
+    # the Milestone 2 repository) needs this to avoid an N+1 query when
+    # rendering a page of listings. No `cascade="all, delete-orphan"`: a
+    # `Listing` is never hard-deleted through the ORM (DB-020: soft delete
+    # only), so that cascade would never fire — the DB-level `ON DELETE
+    # CASCADE` on `ListingImage.listing_id` (DB-031) already documents the
+    # intended behavior for the case (a raw SQL delete) where it would.
+    #
+    # `passive_deletes=True` is required, not optional, precisely because a
+    # relationship now exists: without it, SQLAlchemy's unit-of-work
+    # defaults to managing the child side itself on parent delete — it
+    # emits `UPDATE listing_images SET listing_id = NULL ...` before the
+    # parent `DELETE`, which violates `listing_id`'s `NOT NULL` constraint
+    # and masks the DB-level `ON DELETE CASCADE` entirely (a regression
+    # caught by `test_listing_image_cascades_on_listing_delete`, a
+    # Milestone 0 test that predates this relationship). `passive_deletes`
+    # tells the ORM to do nothing on the child side and let Postgres's own
+    # `ON DELETE CASCADE` handle it, matching DB-031's intent.
+    images: Mapped[list["ListingImage"]] = relationship(
+        "ListingImage",
+        back_populates="listing",
+        order_by="ListingImage.position",
+        passive_deletes=True,
+    )
+
     def __repr__(self) -> str:  # pragma: no cover - debugging aid only
         return f"Listing(id={self.id!r}, title={self.title!r}, status={self.status!r})"
 
@@ -176,6 +203,8 @@ class ListingImage(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=sa_func.now()
     )
+
+    listing: Mapped["Listing"] = relationship("Listing", back_populates="images")
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid only
         return f"ListingImage(id={self.id!r}, listing_id={self.listing_id!r})"

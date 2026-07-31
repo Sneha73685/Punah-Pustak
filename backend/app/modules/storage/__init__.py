@@ -1,10 +1,10 @@
-"""Storage module: object-storage abstraction (BE-030).
+"""Storage module (BE-002): object-storage abstraction (BE-030).
 
-Deliberately empty in Milestone 0. The `StorageBackend` interface
-(`.put`, `.get_url`, `.delete`) and its S3-compatible implementation are
-Milestone 2 work, driven by the listing-image upload requirements
-(API-030/031/032). Creating this module directory now (rather than in
-Milestone 2) only reflects the fixed five-module boundary BE-002 defines
-for the whole project — no interface code is added ahead of the milestone
-that needs it.
+`StorageBackend` (backend.py) is a `Protocol` — the `listings` module's
+service layer depends on it structurally, not on `S3StorageBackend`
+(s3_backend.py) directly, so unit tests can substitute an in-memory fake
+with no inheritance and no real storage (TEST-001). This module has no
+model of its own — it has nothing to persist to Postgres, only to object
+storage — so unlike every other module it never appears in
+`alembic/env.py`'s model imports.
 """

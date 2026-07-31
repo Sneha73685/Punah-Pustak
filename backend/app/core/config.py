@@ -61,8 +61,17 @@ class Settings(BaseSettings):
     )
 
     # --- Object storage (BE-030) -------------------------------------------------
-    # Not consumed until listing-image upload (Milestone 2); present now per BE-020.
+    # storage_endpoint_url is what the API container uses server-to-server to
+    # talk to the storage backend (in docker-compose, the internal hostname
+    # `http://storage:9000` — never reachable from a browser). storage_public_url
+    # is the base URL returned to clients in image URLs (StorageBackend.get_url) —
+    # in local dev, the same MinIO instance's host-published port
+    # (`http://localhost:9000`); in production, the bucket's real public/CDN
+    # URL. These are deliberately two different settings: conflating them was
+    # caught during Milestone 2 implementation before it shipped as a bug — see
+    # IMPLEMENTATION_SUMMARY.md.
     storage_endpoint_url: str = "http://localhost:9000"
+    storage_public_url: str = "http://localhost:9000"
     storage_bucket: str = "punah-pustak-listing-images"
     storage_access_key: str = "punah-pustak-local"
     storage_secret_key: str = "punah-pustak-local-secret"
