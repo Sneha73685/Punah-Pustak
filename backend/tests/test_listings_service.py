@@ -111,6 +111,14 @@ class FakeListingRepository:
         ]
         return Page(items=items, total=len(items))
 
+    def list_all(self, *, status: ListingStatusEnum | None, page: int, page_size: int) -> Page:
+        items = [
+            listing
+            for listing in self._by_id.values()
+            if status is None or listing.status == status
+        ]
+        return Page(items=items, total=len(items))
+
     def get_by_id(self, listing_id: uuid.UUID) -> Listing | None:
         return self._by_id.get(listing_id)
 
@@ -527,3 +535,72 @@ class TestBrowseAndMyListings:
             ListingStatusEnum.SOLD: 1,
             ListingStatusEnum.DELETED: 0,
         }
+
+
+class TestAdminList:
+    """Milestone 4, FR-043."""
+
+    def test_delegates_status_filter_to_repository(self) -> None:
+        available = _make_listing(owner_id=uuid.uuid4(), status=ListingStatusEnum.AVAILABLE)
+        sold = _make_listing(owner_id=uuid.uuid4(), status=ListingStatusEnum.SOLD)
+        repo = FakeListingRepository([available, sold])
+        service = _service(repo)
+
+        filtered = service.admin_list(status=ListingStatusEnum.SOLD, page=1, page_size=20)
+        unfiltered = service.admin_list(status=None, page=1, page_size=20)
+
+        assert [listing.id for listing in filtered.items] == [sold.id]
+        assert {listing.id for listing in unfiltered.items} == {available.id, sold.id}
+
+
+class TestAdminRemove:
+    """Milestone 4, FR-042/UC-5, and FR-029's admin-specific idempotency
+    clause.
+    """
+
+    def test_happy_path_transitions_and_reports_a_real_change(self) -> None:
+        listing = _make_listing(owner_id=uuid.uuid4(), status=ListingStatusEnum.AVAILABLE)
+        repo = FakeListingRepository([listing])
+        service = _service(repo)
+
+        transitioned = service.admin_remove(listing.id)
+
+        assert transitioned is True
+        assert listing.status == ListingStatusEnum.DELETED
+        assert repo.soft_delete_calls == 1
+
+    def test_no_ownership_check_admin_can_remove_any_listing(self) -> None:
+        """Unlike `delete` (owner-only), `admin_remove` has no
+        `_require_owner` call at all — the caller's identity never enters
+        this method, by design (the router's `require_admin` dependency is
+        what gates who may call it).
+        """
+        owner = uuid.uuid4()
+        listing = _make_listing(owner_id=owner, status=ListingStatusEnum.AVAILABLE)
+        repo = FakeListingRepository([listing])
+        service = _service(repo)
+
+        transitioned = service.admin_remove(listing.id)
+
+        assert transitioned is True  # succeeds despite no owner/requester ever being passed
+
+    def test_already_deleted_is_idempotent_and_reports_no_change(self) -> None:
+        """FR-029: "without creating a duplicate admin audit entry when
+        performed by an admin" — this is the signal `AdminService` uses to
+        decide whether to write that audit entry (see `AdminService.remove_listing`).
+        `soft_delete` must not be called a second time either.
+        """
+        listing = _make_listing(owner_id=uuid.uuid4(), status=ListingStatusEnum.DELETED)
+        repo = FakeListingRepository([listing])
+        service = _service(repo)
+
+        transitioned = service.admin_remove(listing.id)
+
+        assert transitioned is False
+        assert repo.soft_delete_calls == 0
+
+    def test_not_found_raises(self) -> None:
+        service = _service(FakeListingRepository())
+
+        with pytest.raises(NotFoundError):
+            service.admin_remove(uuid.uuid4())

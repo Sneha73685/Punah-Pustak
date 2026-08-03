@@ -11,9 +11,11 @@ rate limiting on login/register/refresh is in place."
 from fastapi import Response as FastAPIResponse
 from fastapi.testclient import TestClient
 from httpx import Response
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.modules.auth.router import _set_refresh_cookie
+from app.modules.users.models import User
 from tests.conftest import register_and_login
 
 _REGISTER = "/api/v1/auth/register"
@@ -135,6 +137,26 @@ class TestLogin:
 
         assert response.status_code == 422
         assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    def test_suspended_user_is_rejected_with_the_same_envelope_as_wrong_password(
+        self, api_client: TestClient, db_session: Session
+    ) -> None:
+        """FR-041 (Milestone 4): "A suspended user cannot log in." There is
+        no admin endpoint call here on purpose — this test is scoped to
+        `auth`'s own login behavior given `is_active = False`, independent
+        of how that flag got set; the full admin-suspend-then-login-fails
+        flow is covered end-to-end in `test_admin_api.py`.
+        """
+        email = "suspend-then-login@example.com"
+        _register(api_client, email=email)
+        user = db_session.query(User).filter(User.email == email).one()
+        user.is_active = False
+        db_session.flush()
+
+        response = _login(api_client, email=email, password=_PASSWORD)
+
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "INVALID_CREDENTIALS"
 
 
 class TestRefresh:

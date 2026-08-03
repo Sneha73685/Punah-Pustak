@@ -51,6 +51,18 @@ def register_and_login(
     return str(login_response.json()["access_token"])
 
 
+def auth_headers(token: str) -> dict[str, str]:
+    """`{"Authorization": "Bearer <token>"}` — shared here (Milestone 4
+    audit) for the same reason `register_and_login` above already is:
+    `test_listings_api.py`, `test_users_api.py`, and `test_admin_api.py`
+    had each independently defined this identical one-liner. Trivial on
+    its own, but three independent copies of even a trivial helper is the
+    same drift risk in miniature, and by the time a third copy appeared it
+    was no longer reasonable to call it a one-off.
+    """
+    return {"Authorization": f"Bearer {token}"}
+
+
 def _test_settings() -> Settings:
     """`cookie_secure=False`, matching the non-TLS reality both of local dev
     over plain HTTP (docker-compose sets `COOKIE_SECURE=false` for exactly

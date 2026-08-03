@@ -173,6 +173,108 @@ class TestBrowse:
 
         assert [listing.id for listing in result.items] == [available.id]
 
+    def test_excludes_listings_owned_by_a_suspended_seller(self, db_session: Session) -> None:
+        """FR-041/UC-6 (Milestone 4): "target's listings are excluded from
+        public browse... via the is_active join." An `available` listing
+        from a suspended seller must not appear, even though its own
+        `status` is unaffected — this is the join added to `browse` this
+        milestone, proven directly at the repository layer (not just
+        through `UserRepository.suspend`, which this test deliberately
+        doesn't call — flipping `is_active` directly keeps this test
+        scoped to `browse`'s own query, not `UserRepository`'s behavior,
+        which already has its own dedicated tests).
+        """
+        active_owner = _make_owner(db_session)
+        suspended_owner = _make_owner(db_session)
+        suspended_owner.is_active = False
+        db_session.flush()
+        repo = ListingRepository(db_session)
+        visible = _make_listing(repo, active_owner.id, title="Visible Book")
+        _make_listing(repo, suspended_owner.id, title="Hidden Book")
+
+        result = repo.browse(filters=ListingFilters(), page=1, page_size=10)
+
+        assert [listing.id for listing in result.items] == [visible.id]
+
+    def test_reinstated_owners_listings_reappear(self, db_session: Session) -> None:
+        """The join reads `is_active` live on every call — reinstating a
+        seller (Milestone 4, FR-041) must not require touching any of
+        their listings directly, since `browse` never mutated them to
+        begin with (UC-6's postcondition: "excluded... via the is_active
+        join," not by mutating each listing).
+        """
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        listing = _make_listing(repo, owner.id, title="Comes Back")
+        owner.is_active = False
+        db_session.flush()
+        assert repo.browse(filters=ListingFilters(), page=1, page_size=10).items == []
+
+        owner.is_active = True
+        db_session.flush()
+
+        result = repo.browse(filters=ListingFilters(), page=1, page_size=10)
+        assert [listing_.id for listing_ in result.items] == [listing.id]
+
+
+class TestListAll:
+    """Milestone 4, FR-043: `ListingRepository.list_all`, the admin view."""
+
+    def test_no_status_filter_returns_every_status(self, db_session: Session) -> None:
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        available = _make_listing(repo, owner.id, title="Available")
+        sold = _make_listing(repo, owner.id, title="Sold")
+        deleted = _make_listing(repo, owner.id, title="Deleted")
+        repo.mark_sold(sold)
+        repo.soft_delete(deleted)
+
+        result = repo.list_all(status=None, page=1, page_size=10)
+
+        assert {listing.id for listing in result.items} == {available.id, sold.id, deleted.id}
+
+    def test_status_filter_returns_only_that_status(self, db_session: Session) -> None:
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        available = _make_listing(repo, owner.id, title="Available")
+        sold = _make_listing(repo, owner.id, title="Sold")
+        repo.mark_sold(sold)
+
+        result = repo.list_all(status=ListingStatusEnum.AVAILABLE, page=1, page_size=10)
+
+        assert [listing.id for listing in result.items] == [available.id]
+
+    def test_includes_suspended_sellers_listings_unlike_browse(self, db_session: Session) -> None:
+        """The whole point of the admin view: it must see what `browse`
+        deliberately hides.
+        """
+        suspended_owner = _make_owner(db_session)
+        suspended_owner.is_active = False
+        db_session.flush()
+        repo = ListingRepository(db_session)
+        listing = _make_listing(repo, suspended_owner.id, title="From Suspended Seller")
+
+        result = repo.list_all(status=None, page=1, page_size=10)
+
+        assert listing.id in {item.id for item in result.items}
+
+    def test_pagination_total_and_slicing(self, db_session: Session) -> None:
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        for i in range(5):
+            _make_listing(repo, owner.id, title=f"Book {i}")
+
+        page_1 = repo.list_all(status=None, page=1, page_size=2)
+        page_2 = repo.list_all(status=None, page=2, page_size=2)
+        page_3 = repo.list_all(status=None, page=3, page_size=2)
+
+        assert page_1.total == page_2.total == page_3.total == 5
+        assert len(page_1.items) == 2
+        assert len(page_2.items) == 2
+        assert len(page_3.items) == 1
+        all_ids = {listing.id for listing in page_1.items + page_2.items + page_3.items}
+        assert len(all_ids) == 5
+
 
 class TestGetByIdAndOwner:
     def test_get_by_id_loads_images(self, db_session: Session) -> None:
@@ -206,6 +308,23 @@ class TestGetByIdAndOwner:
 
         assert fetched is not None
         assert fetched.status == ListingStatusEnum.DELETED
+
+    def test_get_by_id_returns_regardless_of_owner_suspension(self, db_session: Session) -> None:
+        """Milestone 4: unlike `browse`, `get_by_id` has no `is_active`
+        join either — a suspended seller's listing is still individually
+        resolvable via direct link, exactly as a `sold` listing already is
+        (see `browse`'s own docstring for the full reasoning).
+        """
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        listing = _make_listing(repo, owner.id)
+        owner.is_active = False
+        db_session.flush()
+
+        fetched = repo.get_by_id(listing.id)
+
+        assert fetched is not None
+        assert fetched.id == listing.id
 
     def test_get_by_owner_returns_every_status(self, db_session: Session) -> None:
         owner = _make_owner(db_session)

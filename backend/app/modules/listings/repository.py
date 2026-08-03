@@ -22,6 +22,7 @@ from app.modules.listings.models import (
     ListingImage,
     ListingStatusEnum,
 )
+from app.modules.users.models import User
 
 
 @dataclass(frozen=True)
@@ -53,16 +54,93 @@ class ListingRepository:
         browse/search MUST NEVER return `sold` or `deleted` listings
         (FR-026), so there is no filter parameter here that could widen
         that, unlike category/condition/price which the caller does control.
+
+        FR-041/UC-6 (Milestone 4): also joins `User` to exclude listings
+        owned by a suspended (`is_active = False`) seller — DB-044 indexes
+        `User.is_active` specifically for this join, anticipated back in
+        Milestone 0. This is unconditional, exactly like the `status =
+        available` constraint above, for the same reason: a suspended
+        seller's listings must never appear in public browse/search
+        results regardless of what any caller-supplied filter says, and
+        there is no filter parameter that could ever widen it. Deliberately
+        NOT applied to `get_by_id` (single-listing detail): the SRS's own
+        wording is specific to "excluded from public **browse**," and a
+        suspended seller's listing is treated the same way a `sold`
+        listing already is — still individually resolvable via a direct
+        link, just absent from the list/search results (see `get_detail`'s
+        own docstring in `ListingService` for the identical reasoning
+        applied to `sold`).
+
+        Orders by `created_at DESC, id DESC` — see `list_all`'s docstring
+        (Milestone 4 bugfix) for why the `id` tiebreaker is required, not
+        cosmetic.
         """
-        base_query = self._filtered_query(filters).where(
-            Listing.status == ListingStatusEnum.AVAILABLE
+        base_query = (
+            self._filtered_query(filters)
+            .join(User, User.id == Listing.owner_id)
+            .where(Listing.status == ListingStatusEnum.AVAILABLE)
+            .where(User.is_active.is_(True))
         )
 
         total = self._count(base_query)
 
         items_query = (
             base_query.options(selectinload(Listing.images))
-            .order_by(Listing.created_at.desc())
+            .order_by(Listing.created_at.desc(), Listing.id.desc())
+            .limit(page_size)
+            .offset((page - 1) * page_size)
+        )
+        items = list(self._db.scalars(items_query).unique())
+        return Page(items=items, total=total)
+
+    def list_all(self, *, status: ListingStatusEnum | None, page: int, page_size: int) -> Page:
+        """FR-043 (Milestone 4): "an admin MUST be able to view any listing
+        regardless of status" — the admin list view, filterable to any one
+        status or, with none given, every listing regardless of status
+        (§8.4: "Admin opens Admin > Listings, filters by any status").
+
+        Deliberately a separate method from `browse`, not a parameter on
+        it: `browse`'s `status = available` and `is_active = True`
+        constraints are security-relevant and MUST stay unconditional and
+        un-parameterizable (see that method's own docstring) — a privileged
+        "see everything, any status, from any seller including suspended
+        ones" query path must never share a code path where a caller
+        -supplied value could accidentally widen the public one. No
+        search/category/condition/price filtering here: FR-043 asks only
+        for status-based visibility, and adding filters nothing in §7.5 or
+        §8.4 asks for would be scope beyond what this milestone requires.
+
+        Orders by `created_at DESC, id DESC`, not `created_at DESC` alone
+        — a bugfix, not a style choice. Postgres's `now()` (this project's
+        `server_default` for every `created_at` column) returns the
+        *transaction's* start time, not the statement's — so any two rows
+        inserted within the same transaction get a byte-for-byte identical
+        `created_at`. Application code (a real request) commits per
+        request, so this rarely collides in production, but nothing about
+        `ORDER BY created_at DESC` alone actually *guarantees* a stable
+        row order for ties either way — Postgres is free to return tied
+        rows in any order on repeated execution of the same query, which
+        silently breaks offset pagination (a row could appear on two
+        pages, or neither) whenever it happens. `id` (already a unique
+        primary key on every row) is a free, always-available tiebreaker
+        that makes the order fully deterministic regardless of whether any
+        two `created_at` values collide. Found via a genuinely flaky test
+        while adding `UserRepository.list_users` (Milestone 4) — see
+        IMPLEMENTATION_SUMMARY.md for the full incident writeup — and
+        applied here and to `browse`/`get_by_owner` since all three share
+        the exact same latent bug, not just the one method that happened
+        to get a test that created three rows in the same transaction
+        first.
+        """
+        query = select(Listing)
+        if status is not None:
+            query = query.where(Listing.status == status)
+
+        total = self._count(query)
+
+        items_query = (
+            query.options(selectinload(Listing.images))
+            .order_by(Listing.created_at.desc(), Listing.id.desc())
             .limit(page_size)
             .offset((page - 1) * page_size)
         )
@@ -76,12 +154,15 @@ class ListingRepository:
         return self._db.scalars(query).unique().one_or_none()
 
     def get_by_owner(self, owner_id: uuid.UUID) -> list[Listing]:
-        """FR-025: My Listings — every status, no filtering."""
+        """FR-025: My Listings — every status, no filtering. Orders by
+        `created_at DESC, id DESC` — see `list_all`'s docstring for why
+        the `id` tiebreaker is a bugfix, not cosmetic.
+        """
         query = (
             select(Listing)
             .where(Listing.owner_id == owner_id)
             .options(selectinload(Listing.images))
-            .order_by(Listing.created_at.desc())
+            .order_by(Listing.created_at.desc(), Listing.id.desc())
         )
         return list(self._db.scalars(query).unique())
 

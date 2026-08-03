@@ -8,7 +8,7 @@ milestone's section is written once, when that milestone is completed, and
 left as a historical record after that (later corrections get their own
 "Pitfall" entry rather than silently rewriting an earlier section).
 
-## Directory structure (current, as of Milestone 3)
+## Directory structure (current, as of Milestone 4)
 
 ```
 backend/
@@ -20,30 +20,38 @@ backend/
                 # the API-010 envelope) and rate_limit's HTTP-facing wrapper,
                 # which lives in app.modules.auth.dependencies instead
     api/v1/     # versioned routers (API-002): health.py, plus auth's,
-                # listings', and users' routers included here
+                # listings', users', and admin's routers included here
     modules/
       auth/     # registration, login, refresh, logout — routers/services/
-                # repositories/schemas/security(hashing)/tokens(JWT+opaque)/
-                # dependencies (get_current_user — now also FR-015's forced
-                # -password-change gate — get_current_user_for_password_change,
-                # get_current_user_optional, rate-limit wrapper)
-      users/    # User account data + own-profile router (Milestone 3: view/
-                # edit display name, change password); service.py is auth's,
-                # listings', and this module's own router's way to reach it
-                # (BE-002 cross-module boundary)
-      listings/ # browse/search/filter, detail, My Listings, create/edit/
-                # delete/mark-sold, image upload, status-count summary
-                # (Milestone 3 adds the summary endpoint) — full stack
-      admin/    # models.py only — Milestone 4
+                # repositories/schemas/security(hashing incl. Milestone 4's
+                # generate_temporary_password)/tokens(JWT+opaque)/
+                # dependencies (get_current_user, its FR-015 gate,
+                # get_current_user_for_password_change, get_current_user_optional,
+                # Milestone 4's require_admin, rate-limit wrapper);
+                # AuthService.login now rejects suspended accounts (FR-041)
+                # and exposes revoke_all_tokens_for_user (SEC-025)
+      users/    # User account data + own-profile router (view/edit display
+                # name, change password) plus Milestone 4's admin-facing
+                # primitives (suspend/reinstate/reset_password/list_users) —
+                # service.py is every other module's (and this module's own
+                # router's) way to reach it (BE-002 cross-module boundary)
+      listings/ # browse/search/filter (now excluding suspended sellers,
+                # FR-041), detail, My Listings, create/edit/delete/mark-sold,
+                # image upload, status-count summary, plus Milestone 4's
+                # admin_list/admin_remove — full stack
+      admin/    # full stack (Milestone 4): AdminService orchestrates
+                # users/listings/auth's own services + its own
+                # AdminActionRepository (the audit log) rather than
+                # reaching into their repositories directly
       storage/  # StorageBackend Protocol + S3StorageBackend (Milestone 2);
                 # no model of its own, so it never appears in
                 # alembic/env.py's model imports
   alembic/      # migrations; env.py imports every module's models so
                 # Base.metadata is fully populated for autogenerate (verified
-                # empty-diff after every milestone through Milestone 3 —
-                # Milestone 3 added no migration of its own: `display_name`,
-                # `password_hash`, and `must_change_password` were already
-                # fully specified on `User` in 0001_initial_schema)
+                # empty-diff after every milestone through Milestone 4 —
+                # Milestone 4 added no migration of its own: AdminAction was
+                # already fully specified, including all four
+                # AdminActionTypeEnum values, in 0001_initial_schema)
   tests/        # pytest: schema/repository round-trips (real Postgres),
                 # service-layer unit tests (fully faked collaborators where
                 # the service has one; a real, unpersisted ORM object where
@@ -726,3 +734,370 @@ revision --autogenerate` re-confirmed an empty diff (no model changed
 during this audit); the live `docker compose` stack brought up earlier in
 this milestone was re-checked healthy (`GET /api/v1/health` still `ok`,
 zero leftover rows in `users`/`listings` from any prior smoke test).
+
+## Milestone 4 — Admin
+
+### The SRS's own broken cross-reference: "§15.4a" does not exist
+FR-041, UC-6, SEC-021, and acceptance criterion 5 (§22) all cite "§15.4a"
+for suspension's timing semantics. This SRS revision has no `### 15.4a`
+(or any `15.4a`) heading — §15.4 is "Authorization" (SEC-030/031), and the
+actual bounded-immediate-suspension content lives in **§15.3, SEC-025**
+("Suspending a user... MUST immediately revoke all of that user's
+RefreshToken rows... an access token issued before suspension remains
+technically valid until its own expiry — at most 15 minutes"). This is a
+mislabeled cross-reference in the source document, not a substantive
+contradiction: SEC-025's content is unambiguous and fully implementable
+without the label pointing anywhere. Noted here rather than raised as a
+blocker, per this project's own standing instruction to only interrupt for
+a *genuine* contradiction — a broken section-number label with
+unambiguous underlying content isn't one. Every place this document and
+the code's own comments needed to reference this behavior, they cite
+SEC-025 directly rather than repeating the SRS's broken "§15.4a" label.
+
+### Precondition ownership: `UserService`/`ListingService` own their own rules; `AdminService` orchestrates and audits
+The same split Milestone 2 already established for `ListingService`
+(ownership + status-transition legality live in the service that owns the
+resource, regardless of which caller reaches it) is extended here rather
+than reinvented: `UserService.suspend`/`reinstate`/`reset_password` own
+their own preconditions (target isn't an admin; target isn't already in
+the requested state) exactly the way `ListingService.mark_sold`/`delete`
+already own `_require_available`/idempotency. `AdminService` — the
+orchestration layer for actions that cross module boundaries (suspending
+touches both `users`' `is_active` and `auth`'s refresh tokens; every
+action writes to `admin`'s own audit log) — calls into those methods and
+reacts to what they raise, rather than re-implementing "is this target an
+admin" itself. This was a deliberate rejection of the alternative (putting
+all precondition logic in `AdminService`, treating `UserService`/
+`ListingService` as dumb persistence wrappers for admin's purposes): that
+would split the same entity's state-machine rules across two modules
+depending on which caller triggered them, which is exactly the kind of
+drift this project's layering discipline (BE-001/BE-002) exists to
+prevent. Verified directly: `test_admin_service.py`'s fakes deliberately
+re-implement these same preconditions (not just record calls), so
+`AdminService`'s own tests prove it reacts correctly to a precondition
+failure without needing to duplicate that logic themselves.
+
+### `_resolve_current_user` deliberately does NOT gain an `is_active` check
+The single most important thing *not* done this milestone, and worth
+recording precisely because it would have been the "obvious" change: the
+temptation, on implementing suspension, is to add `if not
+user.is_active: raise ...` to `get_current_user`'s resolution path, so a
+suspended user is rejected on their very next request. This would be
+**wrong** — SEC-025 explicitly commits to *bounded-immediate*, not
+instantaneous, suspension, and explicitly rejects the per-request
+allowlist/denylist check that an `is_active` check in this function would
+amount to ("would reintroduce the statefulness JWTs exist to avoid, and is
+not justified here"). The actual enforcement points, all deliberately
+separate from token resolution, are: (1) `AuthService.login` rejects a
+suspended user before issuing tokens; (2) `AdminService.suspend_user`
+revokes every `RefreshToken` row for the target, so refresh/re-login fail
+as a *consequence* of no valid token existing, not a live `is_active`
+check; (3) `ListingRepository.browse`'s join excludes a suspended seller's
+listings from public results. `_resolve_current_user`'s own docstring
+(and `get_current_user`'s) were rewritten this milestone to state this
+explicitly and cite SEC-025, since an earlier version of that docstring
+said a future suspension check might "plug in" here — true in the sense
+that the fresh-refetch-per-request groundwork was already there, false in
+the sense that it should ever actually gain that check. Verified directly:
+`test_admin_api.py::TestSuspendUser::test_suspension_is_bounded_immediate_not_instantaneous`
+proves an already-issued access token keeps authenticating normal requests
+after suspension, while `test_suspended_users_refresh_token_is_immediately_revoked`
+and `test_suspended_user_cannot_log_in_again` prove refresh/login are
+blocked immediately — the exact split SEC-025 specifies.
+
+### Suspend/reinstate on a target already in that state is `409 Conflict`, not an idempotent no-op
+FR-029 explicitly calls out delete-listing idempotency ("MUST be
+idempotent... `204 No Content` without error"), including an
+admin-specific clause about not duplicating the audit entry. Nothing in
+§7.5, UC-6, or §10.1 makes the equivalent claim for suspend/reinstate —
+UC-6 states "target user is not already suspended" as a **precondition**,
+with no idempotency carve-out the way FR-029 has one for delete. Read
+consistently with how this project already treats an unstated-but-implied
+idempotency exception (Milestone 2's UC-3, which explicitly does *not*
+extend FR-006a's exception to PATCH), the absence of an explicit
+idempotency clause here is treated as "this is a real error case," not "an
+oversight to fill in with the same behavior as delete." `ConflictError`
+(409) is what `UserService.suspend`/`reinstate` raise instead, matching
+API-011's general "409: the resource's current state makes the operation
+invalid right now."
+
+### Admin-target restriction (`ForbiddenError`, 403) applied uniformly to suspend, reinstate, and reset-password
+UC-7's exception flow states this explicitly for reset-password ("Target
+is an admin -> 403"). UC-6 states the *reason* for suspend ("prevents
+privilege-escalation footguns") without literally repeating "403" a second
+time, and says nothing about reinstate at all. The same restriction was
+applied to all three uniformly rather than only where the SRS's prose
+happens to spell out the status code a second time: the underlying
+concern (admin-to-admin moderation actions are out of scope for this
+tier — "would require a separate super-admin tier that is out of scope")
+applies identically to all three admin-mutating-admin scenarios, and
+leaving reinstate unrestricted would have been a real gap — an
+account that, by construction, can never actually reach a suspended state
+via this system (since suspend already blocks admin targets) would
+otherwise have a reinstate endpoint that's simply never reachable in
+practice for a different, accidental reason (its only real precondition,
+`is_active == True`, is always true for an admin), rather than being
+explicitly and meaningfully forbidden. Explicit is better than
+accidental-and-unreachable.
+
+### `reason_code` transport: `POST` gets a body; `DELETE` gets a query parameter — not the same schema
+§10.1 requires a `reason_code` for both `suspend_user` and
+`remove_listing`. The original draft of this milestone used one shared
+`AdminReasonRequest` Pydantic body schema for both endpoints (`POST
+/admin/users/{id}/suspend` and `DELETE /admin/listings/{id}`) — reusing a
+schema across two structurally-identical inputs, matching Milestone 3's
+`AdminReasonRequest`-equivalent reasoning almost exactly. This was caught
+and corrected **before it shipped**, while writing this milestone's own
+API tests, not after: `httpx.Client.delete()` (and therefore
+`TestClient.delete()`, which every existing API test file in this project
+already uses) has no `json`/`content`/`data` parameter in this project's
+pinned `httpx` version at all — a body can only be attached to a `DELETE`
+via the low-level `.request("DELETE", url, json=...)` call. Beyond the
+immediate test-compatibility problem, a request body on `DELETE` has no
+defined semantics in HTTP itself (RFC 9110) and is inconsistently
+supported by real proxies and clients in the wild — exactly the kind of
+"technically legal, practically fragile" corner this project avoids
+elsewhere (e.g. SEC-020's committed single JWT algorithm, DEPLOY-023's
+same-registrable-domain requirement). Fixed by moving `DELETE
+/admin/listings/{id}`'s `reason_code` to a required query parameter
+(`Annotated[str, Query(min_length=1, max_length=200)]`) instead, and
+narrowing the shared schema — renamed `SuspendUserRequest` — to describe
+only what it's actually still used for. `POST /admin/users/{id}/suspend`
+keeps its JSON body: a body on `POST` is completely unremarkable and has
+no equivalent client-compatibility concern, so there was no reason to
+change it too.
+
+### `AdminUserPublic` is a distinct schema from `UserPublic`, not a reused/extended one
+`app.modules.users.schemas.UserPublic` (Milestone 1) is what a user sees
+of *themselves* — `id`, `email`, `display_name`, `created_at` — and
+deliberately excludes `is_active`/`role`/`must_change_password`, since
+those are either irrelevant or (per FR-015's own design) enforced
+per-request rather than surfaced as a field a client branches on.
+`AdminUserPublic` (Milestone 4) adds `is_active` (FR-040: "...status") for
+a genuinely different audience — an admin looking at *any* account — and
+was written as its own schema rather than `UserPublic` extended with an
+optional field or a subclass, since the two represent different, deliberate
+projections of the same underlying `User` for different consumers with
+different trust levels; conflating them risks the two audiences' fields
+drifting into each other by accident later (e.g. a future field added "for
+admins" silently leaking through the self-service endpoint because it
+shared a base class).
+
+### `ListingRepository.list_all` is a new method, not a parameter on `browse`
+Mirrors the same reasoning `browse`'s own docstring already gives for why
+FR-041's `is_active` join is unconditional there: `browse`'s `status =
+available` and (as of this milestone) `is_active = True` constraints are
+security-relevant and must never be weakened by a caller-supplied value.
+FR-043's admin view needs the opposite behavior — any status, any seller,
+including suspended ones — which is precisely why it is a **separate**
+repository method (`list_all`) rather than an optional parameter that
+could, through a future refactor or a careless call site, end up
+threaded into the public path. The two methods share only what's
+genuinely shared (`_count`, the `Page` dataclass, the `selectinload`
+eager-load pattern) — not the security-relevant `WHERE` clauses.
+
+### `to_public` promoted from private to public, reused rather than duplicated
+`app/modules/listings/router.py`'s response-shaping helper (owner lookup,
+image URL assembly) was renamed from `_to_public` to `to_public` — a pure
+rename, zero behavioral change — specifically so `admin/router.py`'s `GET
+/admin/listings` (FR-043) could import and reuse it for the exact same
+`ListingPublic` shape, instead of hand-writing a second, drifting copy of
+the same enrichment logic. This is a router-to-router import (the function
+happens to be defined alongside `listings`' own routes), which is not the
+usual `service`-to-`service` cross-module call BE-002 describes — but
+`to_public` has no HTTP-routing behavior of its own (no `@router`
+decorator, no `Request`/`Response` types), so importing it is no
+different in kind from `admin` importing `ListingService` itself; it's a
+plain function that happens to live in that file.
+
+### Bug found and fixed: `ORDER BY created_at DESC` alone is non-deterministic under this project's own test isolation — and was already a latent production bug
+The most significant bug this milestone, caught by
+`UserRepository.list_users`'s own newly-written test
+(`test_returns_every_user_ordered_newest_first`, later rewritten — see
+below), which failed on a strict "newest first" ordering assertion after
+creating three users back-to-back in one test. Root cause, confirmed
+empirically (`SELECT now()` called three times inside one transaction,
+byte-for-byte identical result): Postgres's `now()` — this project's
+`server_default` for every `created_at` column since Milestone 0 — returns
+**the transaction's start time**, not the statement's. `db_session`
+(every integration test's isolation fixture) wraps an entire test in one
+transaction, so any test creating multiple rows gets identical
+`created_at` values for all of them, and `ORDER BY created_at DESC` alone
+provides no guarantee about the relative order of tied rows — Postgres is
+free to return ties in a different order on repeated execution of the
+same query, silently duplicating or dropping rows across offset-paginated
+pages when it happens.
+
+This was not a new bug introduced this milestone — it was **already
+present** in `ListingRepository.browse`, `list_all` (new this milestone,
+so it inherited the bug at birth), and `get_by_owner`, all of which order
+by `created_at DESC` alone and have done since Milestone 2. It had simply
+never been exercised by a test that created multiple rows inside one
+transaction and then asserted anything about their relative order — most
+existing pagination tests (correctly, per their own comments) only
+asserted total counts and "no overlap across pages," which happens to
+still pass today only because Postgres's actual physical row storage for
+a freshly-inserted, never-updated small table tends to preserve insertion
+order for ties in practice, not because anything in the query
+*guarantees* it. Milestone 4's `list_users` test was simply the first one
+to assert something (`created_at` ordering) that made the gap visible.
+
+**Fix**: added `Model.id.desc()` as a secondary sort key to every affected
+`order_by` clause — `ListingRepository.browse`, `list_all`,
+`get_by_owner`, and `UserRepository.list_users` — making the ordering
+fully deterministic regardless of whether any two rows' `created_at`
+values collide. `id` was chosen because it's already a unique primary key
+on every affected row, so it's a free, always-available tiebreaker; it
+carries no chronological meaning of its own (UUIDs are random, not
+time-ordered), which is fine, since the actual requirement is
+determinism, not a documented ordering guarantee for same-transaction
+ties FR-025/FR-040/FR-043 never asked for in the first place.
+
+**Test changes**: the failing test
+(`test_returns_every_user_ordered_newest_first`) was replaced with three:
+one proving every created row is returned (correctness), one proving
+newest-first ordering when `created_at` genuinely differs — using an
+*explicit* `created_at` assigned before `flush()` (bypassing the
+`server_default`) rather than relying on real wall-clock time elapsing
+between two `INSERT`s within one transaction, since that's precisely the
+condition proven above **not** to produce different timestamps — and one
+directly proving the regression this fix guards against: pagination across
+several same-`created_at` rows produces no duplicate or missing rows.
+
+**Verification**: reran the fix in isolation (previously-failing test
+passes), then the full suite in both fixed and 5x randomized order with no
+flakiness across any run — this bug's whole nature (a race between "does
+Postgres happen to preserve insertion order" and "does the test order
+place multiple creates in one transaction") means a single green run was
+never sufficient evidence either way.
+
+**Rule for Milestone 5+**: any new `order_by(...)` on a paginated query
+MUST include a unique-column tiebreaker (`id` is the default choice) if
+there's any chance two rows could share the primary sort column's value —
+`created_at` in this project always can, per the mechanism above. A
+pagination test that only checks total counts and no-overlap-across-pages
+is not sufficient to catch this class of bug; a test needs to either
+assert something about relative order when values are forced to differ,
+or create enough rows in one transaction to make a same-timestamp
+collision the common case rather than an edge case.
+
+### Verification performed
+Ruff, Ruff format, and mypy strict (`app alembic tests`) all clean
+throughout. Full pytest suite: **283 tests passing** (up from Milestone
+3's 198 — 85 new tests: repository, service-unit, and API-level coverage
+for every Milestone 4 endpoint and precondition), **99%** overall
+coverage, **100%** on every `services`/`repositories` file including the
+three new `admin` module files — comfortably over TEST-004's 85% floor
+(the CI coverage gate added during the Milestone 3 audit was re-run
+locally and confirmed to still pass at 100% against its scoped file set).
+Ran the full suite 5 additional times under `pytest-randomly` with zero
+flakiness, specifically to re-verify the `created_at`-ordering fix above
+holds regardless of execution order. `alembic revision --autogenerate`
+re-confirmed an empty diff both before and after this milestone's work —
+no migration needed, since `AdminAction` (including all four
+`AdminActionTypeEnum` values) was already fully specified in
+`0001_initial_schema`.
+
+Beyond the automated suite, this milestone's API tests themselves
+constitute an unusually thorough live-equivalent verification, since (per
+the DELETE-body finding above) they run through the same `TestClient`
+every other module's tests already use — no manual `docker compose`
+smoke test was additionally required to prove the HTTP-layer contract
+this time, since the automated suite already exercises the real
+router → service → repository path end-to-end, including full
+integration flows the automated suite doesn't fake any part of: an admin
+suspending a target and that target's login/refresh failing immediately
+while their pre-issued access token keeps working (SEC-025); an admin
+resetting a target's password and that target logging in with it,
+hitting FR-015's forced-change gate from Milestone 3, changing their
+password, and resuming normal access — the full §8.5 account-recovery
+flow, exercised for the first time end-to-end now that both halves
+(FR-015 and FR-045) exist; and an admin removing a listing that then
+disappears from public browse while remaining visible to its owner
+(FR-006a) and to the admin (FR-043) by status.
+
+### Bugs found (summary)
+1. Non-deterministic `ORDER BY created_at DESC` (see above) — a latent
+   bug in Milestone 2 code (`browse`, `get_by_owner`), inherited at birth
+   by this milestone's `list_all`, and independently present in this
+   milestone's own `UserRepository.list_users`. Fixed in all four
+   locations.
+2. A design flaw caught before it shipped: `DELETE /admin/listings/{id}`
+   with a required JSON body (see the `reason_code` transport section
+   above) — not a runtime bug in deployed behavior, but would have been
+   untestable through this project's own `TestClient` conventions and
+   fragile against real HTTP clients/proxies had it gone further. Fixed
+   by switching to a query parameter before any test or client code
+   depended on the body-based shape.
+
+### Remaining risks
+- FR-044 ("no analytics dashboards... admin functionality is moderation
+  only") is a negative requirement — verified by absence (no such
+  endpoint, schema, or query exists anywhere in `admin`), not something a
+  positive test can assert. Worth a periodic manual check as future
+  milestones touch this module, since a negative requirement doesn't fail
+  loudly if violated by accretion.
+- SEC-025's ≤15-minute bound is inherently untestable end-to-end without
+  either waiting out a real token TTL or manipulating the clock; this
+  milestone verified the *mechanism* (refresh/login blocked immediately,
+  existing access token still valid) directly and precisely, which is the
+  actual claim SEC-025 makes — the 15-minute number itself is simply
+  `settings.access_token_ttl_minutes`, already covered by Milestone 1's
+  token-issuance tests.
+- No admin-facing UI exists yet (Milestone 5 scope) — every admin
+  capability in this milestone is API-only, verified via `TestClient`
+  and, structurally, via the same router/service/repository path a future
+  UI would call through.
+
+### Final pre-freeze audit
+A dedicated audit pass — duplicated logic, inconsistent naming,
+architectural drift, missing tests, documentation drift, edge cases,
+hidden regressions — across the whole repository, matching the same
+process the Milestone 2 and 3 reviews used. Three findings, all fixed.
+
+1. **Missing test coverage against TEST-003's literal requirement**:
+   TEST-003 requires "every endpoint's happy path, authorization failure
+   path, and validation failure path at minimum." `GET /admin/users` and
+   `GET /admin/listings` are new paginated endpoints (`page`/`page_size`,
+   plus `status` on the listings one) but had no validation-failure-path
+   test of their own — happy path, 403, and 401 were covered, but an
+   out-of-range `page_size` or an invalid `status` value was not. (The
+   other four admin endpoints were already fully covered: `suspend_user`/
+   `remove_listing` have real bodies/params to fail validation on and
+   already had tests for it; `reinstate_user`/`reset_password` take no
+   body or query params at all, so — matching the established precedent
+   of `POST /auth/logout`, also bodyless, which likewise has no
+   validation-failure test — there is no such path to cover for them.)
+   Fixed by adding three tests: `page_size` out of range for both list
+   endpoints, and an invalid `status` enum value for the listings one.
+
+2. **Duplicated logic, a third time**: `test_listings_api.py`,
+   `test_users_api.py`, and now `test_admin_api.py` had each
+   independently defined the identical one-line `_auth_headers(token) ->
+   {"Authorization": f"Bearer {token}"}` helper. This exact pattern (and
+   `register_and_login`, the more substantial duplicate) was already
+   found and fixed during the Milestone 3 audit for the first two files;
+   at the time, a lone repeated one-liner was judged too trivial to be
+   worth centralizing on its own. A third independent copy is a stronger
+   signal than a coincidence, and by the same reasoning `register_and_login`
+   was consolidated, `auth_headers` was moved into `conftest.py` and all
+   three files updated to import it instead — a pure rename/relocation,
+   zero behavioral change, verified by an unchanged pass count (plus the
+   three new tests from finding 1).
+
+3. **Documentation drift**: `get_current_user`'s own docstring lists the
+   endpoints/concerns that depend on it (listings' ownership checks,
+   users' profile endpoints, auth's logout) but was never updated to
+   mention `require_admin` — built directly on top of it this milestone,
+   and now the single largest new consumer (every `/api/v1/admin/*`
+   endpoint). Updated to include it.
+
+Verification after all three fixes: Ruff, Ruff format, and mypy strict
+clean; full suite green at **286 tests** (up from 283 before this audit)
+across a fixed-order run and 3 further randomized-order runs with no
+flakiness; the coverage gate re-confirmed at 100% against its scoped file
+set. No production code behavior changed as a result of this audit pass
+— every fix was either a test addition, a test-only refactor, or a
+docstring correction.
+
+**Milestone 4 is ready to freeze.**

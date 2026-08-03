@@ -16,10 +16,10 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
-from app.core.exceptions import InvalidAccessTokenError, PasswordChangeRequiredError
+from app.core.exceptions import ForbiddenError, InvalidAccessTokenError, PasswordChangeRequiredError
 from app.core.rate_limit import auth_rate_limiter
 from app.modules.auth.tokens import decode_access_token
-from app.modules.users.models import User
+from app.modules.users.models import RoleEnum, User
 from app.modules.users.service import UserService
 
 # auto_error=False: a missing header should raise the same InvalidAccessTokenError
@@ -34,10 +34,7 @@ def _resolve_current_user(
 ) -> User:
     """Verifies the `Authorization: Bearer <token>` header and re-loads the
     corresponding user from the database on every call — never trusts a
-    token claim for anything beyond "which user id". This is also what lets
-    Milestone 4's suspension check (`user.is_active`) plug in later without
-    redesigning this dependency: it already re-fetches the row fresh on
-    every request.
+    token claim for anything beyond "which user id".
 
     Factored out of `get_current_user` so `get_current_user_for_password_change`
     (Milestone 3, FR-015) can resolve identity through the exact same
@@ -45,6 +42,22 @@ def _resolve_current_user(
     `must_change_password` gate — see that function's docstring for why a
     second, near-identical dependency exists instead of a parameter/flag on
     this one.
+
+    Deliberately does NOT check `user.is_active` (Milestone 4's suspension
+    flag) — an earlier version of this docstring suggested a future
+    suspension check might "plug in" here, which would have been wrong: per
+    SEC-025, suspension is required to be *bounded-immediate*, not
+    instantaneous — an access token issued before suspension remains valid
+    until its own ≤15-minute expiry by explicit design, because true
+    per-request revocation "would reintroduce the statefulness JWTs exist
+    to avoid, and is not justified here." Adding an `is_active` check to
+    this function would silently make suspension instantaneous, contradicting
+    that accepted trade-off. The actual enforcement points are: login
+    (`AuthService.login` rejects a suspended user before issuing tokens),
+    refresh (blocked as a side effect of `AdminService.suspend_user`
+    revoking every `RefreshToken` row, not a separate `is_active` check),
+    and public listing visibility (`ListingRepository.browse`'s join). This
+    function's only job stays "which user does this valid token belong to."
     """
     if credentials is None:
         raise InvalidAccessTokenError()
@@ -63,7 +76,8 @@ def get_current_user(
 ) -> User:
     """The standard "who is calling" dependency every mutating/owned-resource
     endpoint depends on (listings' ownership checks, users' profile
-    endpoints, auth's logout).
+    endpoints, auth's logout, and — via `require_admin` below, built
+    directly on top of this function — every admin endpoint's role gate).
 
     FR-015 *(Milestone 3)*: also enforces the forced-password-change gate
     here, at this single choke point, rather than adding a second
@@ -139,6 +153,22 @@ def get_current_user_optional(
     except InvalidAccessTokenError:
         return None
     return UserService(db).get_by_id(user_id)
+
+
+def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    """SEC-030/SEC-031 (Milestone 4): gates every `/api/v1/admin/*` endpoint.
+    `current_user.role` comes from `get_current_user`, which re-resolves it
+    fresh from the database against the verified token's subject on every
+    request — never from a client-supplied field (a request body/query
+    param has no `role` to spoof in the first place; nothing here reads
+    one). Built on `get_current_user` rather than `_resolve_current_user`
+    directly, so an admin is subject to the exact same FR-015
+    forced-password-change gate as anyone else — there is no reason an
+    admin account mid-forced-change should be exempt from it.
+    """
+    if current_user.role != RoleEnum.ADMIN:
+        raise ForbiddenError("Admin access required.")
+    return current_user
 
 
 def enforce_auth_rate_limit(

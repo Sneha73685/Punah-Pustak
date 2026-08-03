@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.modules.users.models import User
-from tests.conftest import register_and_login
+from tests.conftest import auth_headers, register_and_login
 
 _ME = "/api/v1/users/me"
 _PASSWORD_CHANGE = "/api/v1/users/me/password"
@@ -24,10 +24,6 @@ _LOGIN = "/api/v1/auth/login"
 _LOGOUT = "/api/v1/auth/logout"
 
 _PASSWORD = "a-long-enough-password"
-
-
-def _auth_headers(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def _force_password_change(db_session: Session, email: str) -> None:
@@ -48,7 +44,7 @@ class TestGetOwnProfile:
     def test_happy_path(self, api_client: TestClient) -> None:
         token = register_and_login(api_client, "profile-get@example.com")
 
-        response = api_client.get(_ME, headers=_auth_headers(token))
+        response = api_client.get(_ME, headers=auth_headers(token))
 
         assert response.status_code == 200
         body = response.json()
@@ -69,13 +65,13 @@ class TestUpdateOwnProfile:
         token = register_and_login(api_client, "profile-patch@example.com")
 
         response = api_client.patch(
-            _ME, json={"display_name": "New Display Name"}, headers=_auth_headers(token)
+            _ME, json={"display_name": "New Display Name"}, headers=auth_headers(token)
         )
 
         assert response.status_code == 200
         assert response.json()["display_name"] == "New Display Name"
         # Persisted, not just echoed back:
-        refetched = api_client.get(_ME, headers=_auth_headers(token))
+        refetched = api_client.get(_ME, headers=auth_headers(token))
         assert refetched.json()["display_name"] == "New Display Name"
 
     def test_cannot_change_email(self, api_client: TestClient) -> None:
@@ -89,7 +85,7 @@ class TestUpdateOwnProfile:
         response = api_client.patch(
             _ME,
             json={"display_name": "Still Me", "email": "hijacked@example.com"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 200
@@ -100,7 +96,7 @@ class TestUpdateOwnProfile:
     ) -> None:
         token = register_and_login(api_client, "profile-patch-invalid@example.com")
 
-        response = api_client.patch(_ME, json={"display_name": ""}, headers=_auth_headers(token))
+        response = api_client.patch(_ME, json={"display_name": ""}, headers=auth_headers(token))
 
         assert response.status_code == 422
         assert response.json()["error"]["code"] == "VALIDATION_ERROR"
@@ -120,7 +116,7 @@ class TestChangePassword:
         response = api_client.post(
             _PASSWORD_CHANGE,
             json={"current_password": _PASSWORD, "new_password": "a-brand-new-password"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 204
@@ -139,7 +135,7 @@ class TestChangePassword:
         response = api_client.post(
             _PASSWORD_CHANGE,
             json={"current_password": "not-the-real-password", "new_password": "a-new-password"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 422
@@ -155,7 +151,7 @@ class TestChangePassword:
         response = api_client.post(
             _PASSWORD_CHANGE,
             json={"current_password": _PASSWORD, "new_password": "short"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 422
@@ -186,7 +182,7 @@ class TestForcedPasswordChangeFlow:
         token = register_and_login(api_client, email)
         _force_password_change(db_session, email)
 
-        blocked = api_client.get(_ME, headers=_auth_headers(token))
+        blocked = api_client.get(_ME, headers=auth_headers(token))
         assert blocked.status_code == 403
         assert blocked.json()["error"]["code"] == "PASSWORD_CHANGE_REQUIRED"
 
@@ -213,7 +209,7 @@ class TestForcedPasswordChangeFlow:
                 "condition": "good",
                 "price": 1.00,
             },
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert blocked.status_code == 403
@@ -229,7 +225,7 @@ class TestForcedPasswordChangeFlow:
         response = api_client.post(
             _PASSWORD_CHANGE,
             json={"current_password": _PASSWORD, "new_password": "a-brand-new-password"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 204
@@ -245,16 +241,16 @@ class TestForcedPasswordChangeFlow:
         email = "forced-change-resume@example.com"
         token = register_and_login(api_client, email)
         _force_password_change(db_session, email)
-        assert api_client.get(_ME, headers=_auth_headers(token)).status_code == 403
+        assert api_client.get(_ME, headers=auth_headers(token)).status_code == 403
 
         change = api_client.post(
             _PASSWORD_CHANGE,
             json={"current_password": _PASSWORD, "new_password": "a-brand-new-password"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
         assert change.status_code == 204
 
-        resumed = api_client.get(_ME, headers=_auth_headers(token))
+        resumed = api_client.get(_ME, headers=auth_headers(token))
         assert resumed.status_code == 200
 
     def test_wrong_temporary_password_leaves_flag_set_and_stays_blocked(
@@ -267,11 +263,11 @@ class TestForcedPasswordChangeFlow:
         failed_change = api_client.post(
             _PASSWORD_CHANGE,
             json={"current_password": "not-the-temp-password", "new_password": "a-new-password"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
         assert failed_change.status_code == 422
 
-        still_blocked = api_client.get(_ME, headers=_auth_headers(token))
+        still_blocked = api_client.get(_ME, headers=auth_headers(token))
         assert still_blocked.status_code == 403
         assert still_blocked.json()["error"]["code"] == "PASSWORD_CHANGE_REQUIRED"
 
@@ -282,7 +278,7 @@ class TestForcedPasswordChangeFlow:
         """
         token = register_and_login(api_client, "never-forced@example.com")
 
-        response = api_client.get(_ME, headers=_auth_headers(token))
+        response = api_client.get(_ME, headers=auth_headers(token))
 
         assert response.status_code == 200
 
@@ -313,7 +309,7 @@ class TestForcedPasswordChangeFlow:
         token = register_and_login(api_client, email)
         _force_password_change(db_session, email)
 
-        response = api_client.post(_LOGOUT, headers=_auth_headers(token))
+        response = api_client.post(_LOGOUT, headers=auth_headers(token))
 
         assert response.status_code == 403
         assert response.json()["error"]["code"] == "PASSWORD_CHANGE_REQUIRED"
@@ -340,7 +336,7 @@ class TestForcedPasswordChangeFlow:
                 "condition": "good",
                 "price": 5.00,
             },
-            headers=_auth_headers(owner_token),
+            headers=auth_headers(owner_token),
         ).json()
 
         viewer_email = "forced-change-listing-viewer@example.com"
@@ -348,7 +344,7 @@ class TestForcedPasswordChangeFlow:
         _force_password_change(db_session, viewer_email)
 
         response = api_client.get(
-            f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(viewer_token)
+            f"{_LISTINGS}/{listing['id']}", headers=auth_headers(viewer_token)
         )
 
         assert response.status_code == 200

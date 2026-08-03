@@ -45,6 +45,7 @@ MAX_IMAGES_PER_LISTING = 6
 
 class ListingRepositoryProtocol(Protocol):
     def browse(self, *, filters: ListingFilters, page: int, page_size: int) -> Page: ...
+    def list_all(self, *, status: ListingStatusEnum | None, page: int, page_size: int) -> Page: ...
     def get_by_id(self, listing_id: uuid.UUID) -> Listing | None: ...
     def get_by_owner(self, owner_id: uuid.UUID) -> list[Listing]: ...
     def count_by_owner_status(self, owner_id: uuid.UUID) -> dict[ListingStatusEnum, int]: ...
@@ -94,7 +95,11 @@ class ListingService:
         restriction — FR-026 only excludes `sold` from browse/search
         results, not from direct detail-view access by anyone, including
         guests (e.g. a bookmarked/shared link to a since-sold listing
-        should still resolve, not 404).
+        should still resolve, not 404). A listing owned by a suspended
+        seller (Milestone 4, FR-041/UC-6) is treated identically: excluded
+        from `browse` (`ListingRepository.browse`'s join against
+        `User.is_active`), but still resolvable here via a direct link —
+        this method has no seller-status check of its own, by design.
         """
         listing = self._listings.get_by_id(listing_id)
         if listing is None:
@@ -184,6 +189,39 @@ class ListingService:
         if listing.status == ListingStatusEnum.DELETED:
             return
         self._listings.soft_delete(listing)
+
+    def admin_list(self, *, status: ListingStatusEnum | None, page: int, page_size: int) -> Page:
+        """FR-043 (Milestone 4): admin view of any/all listings. No
+        ownership or visibility check — the router's `require_admin`
+        dependency is what gates who may call this at all (SEC-031); this
+        method's only job is the query itself, delegated straight to
+        `ListingRepository.list_all` (see that method's docstring for why
+        it's a separate repository method from `browse`, not a parameter
+        on it).
+        """
+        return self._listings.list_all(status=status, page=page, page_size=page_size)
+
+    def admin_remove(self, listing_id: uuid.UUID) -> bool:
+        """FR-042/UC-5's admin path, and FR-029's admin-specific idempotency
+        clause: "deleting a listing whose status is already deleted MUST
+        be idempotent... without creating a duplicate admin audit entry
+        when performed by an admin." No ownership check (admin may remove
+        ANY listing, unlike `delete`, which is owner-only) — the router's
+        `require_admin` dependency gates who may call this.
+
+        Returns whether a real state transition happened (`True`) or the
+        listing was already `deleted` (`False`) — `AdminService` uses this
+        to decide whether to write an `AdminAction` audit record, which is
+        exactly what FR-029's "without creating a duplicate admin audit
+        entry" requires: the audit write must not happen at all on the
+        no-op path, not merely avoid being literally identical to a prior
+        one.
+        """
+        listing = self._get_or_404(listing_id)
+        if listing.status == ListingStatusEnum.DELETED:
+            return False
+        self._listings.soft_delete(listing)
+        return True
 
     def upload_images(
         self, *, listing_id: uuid.UUID, requester: User, files: list[bytes]
