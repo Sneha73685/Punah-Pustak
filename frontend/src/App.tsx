@@ -1,17 +1,94 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+
+import { ProtectedRoute } from "@/auth/ProtectedRoute";
+import { Layout } from "@/components/Layout";
+import { BrowsePage } from "@/pages/BrowsePage";
+import { ChangePasswordPage } from "@/pages/ChangePasswordPage";
+import { CreateListingPage } from "@/pages/CreateListingPage";
+import { EditListingPage } from "@/pages/EditListingPage";
+import { ListingDetailPage } from "@/pages/ListingDetailPage";
+import { LoginPage } from "@/pages/LoginPage";
+import { MyListingsPage } from "@/pages/MyListingsPage";
+import { ProfilePage } from "@/pages/ProfilePage";
+import { RegisterPage } from "@/pages/RegisterPage";
+import { AdminListingsPage } from "@/pages/admin/AdminListingsPage";
+import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
+
 /**
- * Milestone 0 placeholder.
- *
- * This exists only so `docker-compose.yml`'s `web` service (DEPLOY-001) has
- * something real to build and serve. Routing (FE-002), the component
- * library (FE-011), TanStack Query integration (FE-003), and every actual
- * page are Milestone 5 work and are deliberately not started here.
+ * FE-002: every backend endpoint gets a corresponding, working UI route
+ * (Milestone 5 exit criterion). `/login`, `/register`, and `/listings*`
+ * (browse + detail) are reachable while unauthenticated (FR-001/FR-005);
+ * everything else requires a session, and `/admin/*` additionally requires
+ * the `admin` role — both enforced client-side by `ProtectedRoute` as a UX
+ * nicety only, with the server as the real boundary (SEC-030/031).
  */
-function App(): JSX.Element {
+function App(): React.JSX.Element {
   return (
-    <main style={{ fontFamily: "sans-serif", padding: "2rem" }}>
-      <h1>Punah-Pustak</h1>
-      <p>Frontend scaffold — Milestone 0. Pages arrive in Milestone 5.</p>
-    </main>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/" element={<Navigate to="/listings" replace />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/listings" element={<BrowsePage />} />
+        <Route path="/listings/:id" element={<ListingDetailPage />} />
+
+        {/* Deliberately not wrapped in `ProtectedRoute`: that guard itself
+            redirects "password-change-required" sessions to this exact
+            route, which would loop. `AuthContext`'s global handler already
+            navigates here on the triggering 403 from any other route. */}
+        <Route path="/change-password" element={<ChangePasswordPage />} />
+        <Route
+          path="/listings/new"
+          element={
+            <ProtectedRoute>
+              <CreateListingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/listings/:id/edit"
+          element={
+            <ProtectedRoute>
+              <EditListingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-listings"
+          element={
+            <ProtectedRoute>
+              <MyListingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AdminUsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/listings"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AdminListingsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/listings" replace />} />
+      </Route>
+    </Routes>
   );
 }
 

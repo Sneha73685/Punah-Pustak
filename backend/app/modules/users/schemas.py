@@ -12,13 +12,34 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.users.models import RoleEnum
+
 
 class UserPublic(BaseModel):
+    """Bugfix, discovered during Milestone 5 (frontend build-out): `role`
+    was missing from this schema entirely. §6/FR-040 make `role` a
+    genuinely public-to-its-owner fact (a user already knows whether
+    they're an admin — this is not the kind of "other users' data" leak
+    `UserPublic`'s exclusions above guard against), and nothing else in
+    the API surface can substitute for it: the JWT access token payload
+    carries only `sub`/`type`/`iat`/`exp` (SEC-020) with no role claim by
+    design (a stateless claim would need to be treated as authoritative,
+    reintroducing exactly the "trust a client-supplied/cached field for
+    authorization" problem SEC-031 forbids), and admin authorization is
+    correctly re-checked server-side on every request regardless
+    (`require_admin`, Milestone 4) — so exposing `role` here changes
+    nothing about how *authorization* works, it only lets the frontend
+    decide whether to *render* admin navigation/pages at all. Without it,
+    Milestone 5's admin UI has no non-hacky way to know whether the
+    logged-in user should see it.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     email: str
     display_name: str
+    role: RoleEnum
     created_at: datetime
 
 
