@@ -59,6 +59,7 @@ class RefreshTokenRepositoryProtocol(Protocol):
     def get_by_hash(self, token_hash: str) -> RefreshToken | None: ...
     def revoke(self, token: RefreshToken) -> None: ...
     def revoke_family(self, family_id: uuid.UUID) -> None: ...
+    def revoke_all_for_user(self, user_id: uuid.UUID) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -102,11 +103,23 @@ class AuthService:
 
     def login(self, *, email: str, password: str) -> TokenPair:
         """FR-012. `InvalidCredentialsError` is raised identically whether
-        the email doesn't exist or the password is wrong — never reveal
-        which, to avoid account enumeration.
+        the email doesn't exist, the password is wrong, or the account is
+        suspended (Milestone 4, FR-041: "A suspended user cannot log in")
+        — never reveal which, to avoid account enumeration. This reuses the
+        same generic error `AuthService` already raises for a wrong
+        password rather than introducing a distinct "ACCOUNT_SUSPENDED"
+        code: telling an anonymous caller "this specific account exists and
+        is suspended" leaks exactly the account-existence information
+        `InvalidCredentialsError` exists to withhold. A legitimately
+        suspended user already learns why through the same out-of-band
+        channel this product uses for every other human-mediated
+        interaction (§2, §8.5) — the API response itself doesn't need to
+        say it.
         """
         user = self._users.get_by_email(email)
         if user is None or not verify_password(password, user.password_hash):
+            raise InvalidCredentialsError()
+        if not user.is_active:
             raise InvalidCredentialsError()
         return self._issue_token_pair(user_id=user.id, family_id=uuid.uuid4())
 
@@ -139,6 +152,25 @@ class AuthService:
         stored = self._refresh_tokens.get_by_hash(token_hash)
         if stored is not None and not stored.revoked:
             self._refresh_tokens.revoke(stored)
+
+    def revoke_all_tokens_for_user(self, user_id: uuid.UUID) -> None:
+        """SEC-025 (Milestone 4): the auth-side half of suspending a user —
+        called by `AdminService.suspend_user`, which also flips
+        `User.is_active` via `UserService` (BE-002: admin orchestrates
+        across module boundaries; each module owns only its own primitive).
+        Revokes every `RefreshToken` row for this user across every family,
+        not just one — this is what makes suspension immediately block
+        further refresh/re-login. It deliberately does NOT and cannot touch
+        an access token already issued: that's a stateless JWT (SEC-020),
+        so it remains valid until its own ≤15-minute expiry regardless —
+        the accepted "bounded-immediate, not instantaneous" trade-off this
+        SRS documents as SEC-025 (the document's own cross-reference to
+        this calls it "§15.4a", which does not exist as an actual section
+        in this SRS revision — SEC-025, in §15.3, is the actual content;
+        flagged as a documentation issue in IMPLEMENTATION_SUMMARY.md, not
+        a reason to guess at different behavior).
+        """
+        self._refresh_tokens.revoke_all_for_user(user_id)
 
     def _issue_token_pair(self, *, user_id: uuid.UUID, family_id: uuid.UUID) -> TokenPair:
         access_token = create_access_token(user_id, self._settings)

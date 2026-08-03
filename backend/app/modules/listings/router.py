@@ -59,7 +59,7 @@ def _build_service(db: Session, storage: StorageBackend) -> ListingService:
     return ListingService(listings=ListingRepository(db), storage=storage)
 
 
-def _to_public(listing: Listing, db: Session, storage: StorageBackend) -> ListingPublic:
+def to_public(listing: Listing, db: Session, storage: StorageBackend) -> ListingPublic:
     """Enriches an ORM `Listing` with the two things it doesn't itself
     carry: the seller's display name (owned by `users`, via `UserService` —
     the sanctioned cross-module call per BE-002, same pattern as
@@ -68,6 +68,15 @@ def _to_public(listing: Listing, db: Session, storage: StorageBackend) -> Listin
     `UserService.get_by_id` call per listing rather than a batch-fetch:
     proportionate at this project's target scale (NFR-002: page_size capped
     at 50) — see IMPLEMENTATION_SUMMARY.md.
+
+    Public (no leading underscore) since Milestone 4: `app.modules.admin.router`
+    imports this directly for its own `GET /admin/listings` view (FR-043) —
+    same shape, same enrichment, reused rather than duplicated. Still lives
+    here, not promoted into `ListingService` or a standalone module: it's a
+    response-shaping concern (BE-001 keeps that out of the service layer),
+    and `listings` remains the module that owns it — admin importing a
+    function from it is no different in kind from admin importing
+    `ListingService` itself.
     """
     owner = UserService(db).get_by_id(listing.owner_id)
     # `Listing.owner_id` is `ON DELETE RESTRICT` and users are never
@@ -119,7 +128,7 @@ def browse_listings(
     )
     result = service.browse(filters=filters, page=page, page_size=page_size)
     return ListingPage(
-        items=[_to_public(listing, db, storage) for listing in result.items],
+        items=[to_public(listing, db, storage) for listing in result.items],
         total=result.total,
         page=page,
         page_size=page_size,
@@ -139,7 +148,7 @@ def get_listing(
 ) -> ListingPublic:
     service = _build_service(db, storage)
     listing = service.get_detail(listing_id, requester)
-    return _to_public(listing, db, storage)
+    return to_public(listing, db, storage)
 
 
 @router.post(
@@ -164,7 +173,7 @@ def create_listing(
         condition=body.condition,
         price=body.price,
     )
-    return _to_public(listing, db, storage)
+    return to_public(listing, db, storage)
 
 
 @router.patch(
@@ -186,7 +195,7 @@ def update_listing(
     # already rejects, not a legitimate "clear this field" instruction.
     fields = body.model_dump(exclude_unset=True)
     listing = service.update(listing_id=listing_id, requester=current_user, fields=fields)
-    return _to_public(listing, db, storage)
+    return to_public(listing, db, storage)
 
 
 @router.delete(
@@ -217,7 +226,7 @@ def mark_listing_sold(
 ) -> ListingPublic:
     service = _build_service(db, storage)
     listing = service.mark_sold(listing_id=listing_id, requester=current_user)
-    return _to_public(listing, db, storage)
+    return to_public(listing, db, storage)
 
 
 @router.post(
@@ -258,7 +267,7 @@ def get_my_listings(
 ) -> list[ListingPublic]:
     service = _build_service(db, storage)
     listings = service.get_my_listings(current_user)
-    return [_to_public(listing, db, storage) for listing in listings]
+    return [to_public(listing, db, storage) for listing in listings]
 
 
 @my_listings_router.get(

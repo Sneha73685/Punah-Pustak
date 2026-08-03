@@ -54,3 +54,21 @@ class RefreshTokenRepository:
             update(RefreshToken).where(RefreshToken.family_id == family_id).values(revoked=True)
         )
         self._db.flush()
+
+    def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
+        """SEC-025/UC-6 (Milestone 4): suspending a user MUST immediately
+        revoke *every* `RefreshToken` row belonging to them — every family,
+        not just one — so no future refresh or re-login succeeds from that
+        point forward. Same bulk-`UPDATE` shape as `revoke_family` (no
+        per-row Python logic needed), scoped to `user_id` instead of a
+        single `family_id`. `revoked = false` in the `WHERE` clause is an
+        optimization, not a correctness requirement — re-marking an
+        already-revoked row `True` is harmless — it just avoids writing to
+        rows that don't need it.
+        """
+        self._db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user_id, RefreshToken.revoked.is_(False))
+            .values(revoked=True)
+        )
+        self._db.flush()

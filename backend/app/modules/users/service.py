@@ -4,22 +4,26 @@ Other modules (starting with `auth` in Milestone 1) MUST call into this
 service rather than importing `UserRepository`/`User` directly — that is
 what "cross-module calls go through service interfaces, not direct
 repository access" means in practice. Business logic that belongs to the
-`users` domain (account creation, profile edits, password changes) lives
-here, not duplicated into whichever module happens to call it first.
+`users` domain (account creation, profile edits, password changes,
+suspension/reinstatement, admin-assisted password reset) lives here, not
+duplicated into whichever module happens to call it first — including
+`AdminService` (Milestone 4), which orchestrates this module together with
+`auth` and its own audit log rather than reimplementing either's rules.
 
-BE-001: services MUST NOT import FastAPI request/response types. `change_password`
-raises `app.core.exceptions.DomainError` subclasses on failure, translated
-centrally by `app.core.errors` — this module never builds an HTTP response.
+BE-001: services MUST NOT import FastAPI request/response types. Every
+mutating method here raises `app.core.exceptions.DomainError` subclasses on
+failure, translated centrally by `app.core.errors` — this module never
+builds an HTTP response.
 """
 
 import uuid
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ValidationFailedError
-from app.modules.auth.security import hash_password, verify_password
-from app.modules.users.models import User
-from app.modules.users.repository import UserRepository
+from app.core.exceptions import ConflictError, ForbiddenError, ValidationFailedError
+from app.modules.auth.security import generate_temporary_password, hash_password, verify_password
+from app.modules.users.models import RoleEnum, User
+from app.modules.users.repository import Page, UserRepository
 
 
 class UserService:
@@ -87,3 +91,72 @@ class UserService:
                 fields={"current_password": ["Current password is incorrect."]},
             )
         self._repository.set_password(user, hash_password(new_password))
+
+    def list_users(self, *, page: int, page_size: int) -> Page:
+        """FR-040. No filtering, no ownership scoping — an admin-only
+        capability (the router's `require_admin` dependency is what
+        actually gates this; nothing here re-checks role, matching how
+        `ListingService.browse` doesn't re-check "is this a guest" either
+        — visibility/authorization is enforced once, at the boundary
+        appropriate to it, not duplicated into every layer beneath it).
+        """
+        return self._repository.list_users(page=page, page_size=page_size)
+
+    def suspend(self, target: User) -> User:
+        """FR-041/UC-6 (Milestone 4). Owns both preconditions UC-6 states —
+        target is not an admin, target is not already suspended — as this
+        module's own state-machine legality, the same way
+        `ListingService.mark_sold`/`delete` own `_require_available`/
+        idempotency for `Listing` regardless of which caller (owner or
+        admin) reaches them. `AdminService` orchestrates this together with
+        `AuthService.revoke_all_tokens_for_user` (SEC-025) and its own audit
+        log, but does not re-implement either precondition itself.
+
+        Raises `ForbiddenError` (403) for an admin target — UC-6: "admins
+        cannot suspend other admins via this endpoint — prevents privilege
+        -escalation footguns." Raises `ConflictError` (409) if already
+        suspended — UC-6 states this as a precondition, and (unlike FR-029's
+        explicit idempotent-delete carve-out for listings) nothing in §7.5
+        or §9 asks for suspend/reinstate to be idempotent no-ops instead;
+        the absence of an explicit idempotency exception is read the same
+        way API-011's general "409 state conflict" is used everywhere else
+        in this codebase a precondition is violated without one.
+        """
+        if target.role == RoleEnum.ADMIN:
+            raise ForbiddenError("Admin accounts cannot be suspended.")
+        if not target.is_active:
+            raise ConflictError("User is already suspended.")
+        return self._repository.suspend(target)
+
+    def reinstate(self, target: User) -> User:
+        """FR-041/UC-6 (Milestone 4). Mirrors `suspend`'s preconditions —
+        see that method's docstring for the reasoning behind both the
+        admin-target restriction and the lack of idempotency.
+        """
+        if target.role == RoleEnum.ADMIN:
+            raise ForbiddenError("Admin accounts cannot be reinstated via this endpoint.")
+        if target.is_active:
+            raise ConflictError("User is already active.")
+        return self._repository.reinstate(target)
+
+    def reset_password(self, target: User) -> str:
+        """FR-045/UC-7 (Milestone 4): admin-assisted password reset. Raises
+        `ForbiddenError` (403) for an admin target — UC-7's exception flow
+        states this explicitly ("Target is an admin -> 403"), consistent
+        with `suspend`/`reinstate`'s identical restriction. Unlike those
+        two, there is no "already in this state" conflict to guard against
+        — triggering a second reset before the first temporary password was
+        ever used is legitimate (e.g., the admin needs to issue a fresh one
+        because the first was lost before being relayed).
+
+        Returns the plaintext temporary password — the one and only place
+        it ever exists outside `generate_temporary_password`'s return value
+        and the admin's own out-of-band relay to the user (FR-045: "return
+        the temporary password once"). Never logged, never stored: only
+        its Argon2id hash (`hash_password`, SEC-010) is persisted.
+        """
+        if target.role == RoleEnum.ADMIN:
+            raise ForbiddenError("Cannot reset the password of an admin account.")
+        temporary_password = generate_temporary_password()
+        self._repository.set_temporary_password(target, hash_password(temporary_password))
+        return temporary_password

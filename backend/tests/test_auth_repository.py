@@ -152,3 +152,50 @@ class TestRefreshTokenRepository:
         untouched = repo.get_by_hash("other-family-token")
         assert untouched is not None
         assert untouched.revoked is False
+
+    def test_revoke_all_for_user_marks_every_family_but_not_other_users(
+        self, db_session: Session
+    ) -> None:
+        """SEC-025 (Milestone 4): suspending a user revokes *every*
+        `RefreshToken` row for them, across every family — not just one,
+        unlike `revoke_family`. Bulk `UPDATE` again, so this proves it
+        reaches rows never loaded into the session as ORM objects, and
+        confirms it is correctly scoped to `user_id` (a different user's
+        tokens must never be touched by this).
+        """
+        target = _make_user(db_session)
+        other_user = _make_user(db_session)
+        repo = RefreshTokenRepository(db_session)
+        for i in range(2):
+            repo.create(
+                user_id=target.id,
+                token_hash=f"target-family-a-{i}",
+                family_id=uuid.uuid4(),
+                expires_at=datetime.now(UTC) + timedelta(days=30),
+            )
+        repo.create(
+            user_id=target.id,
+            token_hash="target-family-b",
+            family_id=uuid.uuid4(),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+        )
+        repo.create(
+            user_id=other_user.id,
+            token_hash="other-user-token",
+            family_id=uuid.uuid4(),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+        )
+
+        repo.revoke_all_for_user(target.id)
+
+        db_session.expire_all()
+        for i in range(2):
+            token = repo.get_by_hash(f"target-family-a-{i}")
+            assert token is not None
+            assert token.revoked is True
+        family_b_token = repo.get_by_hash("target-family-b")
+        assert family_b_token is not None
+        assert family_b_token.revoked is True
+        untouched = repo.get_by_hash("other-user-token")
+        assert untouched is not None
+        assert untouched.revoked is False

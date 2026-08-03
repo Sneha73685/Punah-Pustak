@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.modules.storage.dependencies import get_storage_backend
-from tests.conftest import register_and_login
+from tests.conftest import auth_headers, register_and_login
 from tests.test_listings_service import FakeStorageBackend
 
 _LISTINGS = "/api/v1/listings"
@@ -62,13 +62,9 @@ def client(
         app.dependency_overrides.pop(get_storage_backend, None)
 
 
-def _auth_headers(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _create_listing(client: TestClient, token: str, **overrides: object) -> dict[str, object]:
     body = {**_VALID_LISTING, **overrides}
-    response = client.post(_LISTINGS, json=body, headers=_auth_headers(token))
+    response = client.post(_LISTINGS, json=body, headers=auth_headers(token))
     assert response.status_code == 201, response.text
     result: dict[str, object] = response.json()
     return result
@@ -119,7 +115,7 @@ class TestDetailVisibilityMatrix:
     def test_deleted_listing_is_404_to_guest(self, client: TestClient) -> None:
         token = register_and_login(client, "detail-del-guest@example.com")
         listing = _create_listing(client, token)
-        client.delete(f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(token))
+        client.delete(f"{_LISTINGS}/{listing['id']}", headers=auth_headers(token))
 
         response = client.get(f"{_LISTINGS}/{listing['id']}")
 
@@ -129,19 +125,19 @@ class TestDetailVisibilityMatrix:
     def test_deleted_listing_is_404_to_other_authenticated_user(self, client: TestClient) -> None:
         owner_token = register_and_login(client, "detail-del-owner2@example.com")
         listing = _create_listing(client, owner_token)
-        client.delete(f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(owner_token))
+        client.delete(f"{_LISTINGS}/{listing['id']}", headers=auth_headers(owner_token))
         stranger_token = register_and_login(client, "detail-del-stranger@example.com")
 
-        response = client.get(f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(stranger_token))
+        response = client.get(f"{_LISTINGS}/{listing['id']}", headers=auth_headers(stranger_token))
 
         assert response.status_code == 404
 
     def test_deleted_listing_is_visible_to_owner(self, client: TestClient) -> None:
         token = register_and_login(client, "detail-del-owner@example.com")
         listing = _create_listing(client, token)
-        client.delete(f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(token))
+        client.delete(f"{_LISTINGS}/{listing['id']}", headers=auth_headers(token))
 
-        response = client.get(f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(token))
+        response = client.get(f"{_LISTINGS}/{listing['id']}", headers=auth_headers(token))
 
         assert response.status_code == 200
         assert response.json()["status"] == "deleted"
@@ -157,7 +153,7 @@ class TestDetailVisibilityMatrix:
         listing = _create_listing(client, token)
 
         response = client.get(
-            f"{_LISTINGS}/{listing['id']}", headers=_auth_headers("not-a-real-token")
+            f"{_LISTINGS}/{listing['id']}", headers=auth_headers("not-a-real-token")
         )
 
         assert response.status_code == 200  # available listing, treated as guest — still visible
@@ -173,7 +169,7 @@ class TestCreate:
     def test_happy_path(self, client: TestClient) -> None:
         token = register_and_login(client, "create-happy@example.com")
 
-        response = client.post(_LISTINGS, json=_VALID_LISTING, headers=_auth_headers(token))
+        response = client.post(_LISTINGS, json=_VALID_LISTING, headers=auth_headers(token))
 
         assert response.status_code == 201
         body = response.json()
@@ -193,7 +189,7 @@ class TestCreate:
         response = client.post(
             _LISTINGS,
             json={**_VALID_LISTING, "price": -5.00},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 422
@@ -205,7 +201,7 @@ class TestCreate:
         token = register_and_login(client, "create-notitle@example.com")
         incomplete = {k: v for k, v in _VALID_LISTING.items() if k != "title"}
 
-        response = client.post(_LISTINGS, json=incomplete, headers=_auth_headers(token))
+        response = client.post(_LISTINGS, json=incomplete, headers=auth_headers(token))
 
         assert response.status_code == 422
         assert "title" in response.json()["error"]["fields"]
@@ -219,7 +215,7 @@ class TestUpdate:
         response = client.patch(
             f"{_LISTINGS}/{listing['id']}",
             json={"title": "The Hobbit (Revised)"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 200
@@ -233,7 +229,7 @@ class TestUpdate:
         response = client.patch(
             f"{_LISTINGS}/{listing['id']}",
             json={"title": "Hacked"},
-            headers=_auth_headers(stranger_token),
+            headers=auth_headers(stranger_token),
         )
 
         assert response.status_code == 403
@@ -242,12 +238,12 @@ class TestUpdate:
     def test_sold_listing_returns_conflict(self, client: TestClient) -> None:
         token = register_and_login(client, "update-sold@example.com")
         listing = _create_listing(client, token)
-        client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=_auth_headers(token))
+        client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=auth_headers(token))
 
         response = client.patch(
             f"{_LISTINGS}/{listing['id']}",
             json={"title": "Too Late"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 409
@@ -260,7 +256,7 @@ class TestUpdate:
         response = client.patch(
             f"{_LISTINGS}/{listing['id']}",
             json={"price": -1},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 422
@@ -272,7 +268,7 @@ class TestUpdate:
         response = client.patch(
             f"{_LISTINGS}/00000000-0000-0000-0000-000000000000",
             json={"title": "X"},
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 404
@@ -283,7 +279,7 @@ class TestDelete:
         token = register_and_login(client, "delete-happy@example.com")
         listing = _create_listing(client, token)
 
-        response = client.delete(f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(token))
+        response = client.delete(f"{_LISTINGS}/{listing['id']}", headers=auth_headers(token))
 
         assert response.status_code == 204
 
@@ -291,8 +287,8 @@ class TestDelete:
         token = register_and_login(client, "delete-idempotent@example.com")
         listing = _create_listing(client, token)
 
-        first = client.delete(f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(token))
-        second = client.delete(f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(token))
+        first = client.delete(f"{_LISTINGS}/{listing['id']}", headers=auth_headers(token))
+        second = client.delete(f"{_LISTINGS}/{listing['id']}", headers=auth_headers(token))
 
         assert first.status_code == second.status_code == 204
 
@@ -302,7 +298,7 @@ class TestDelete:
         stranger_token = register_and_login(client, "delete-stranger@example.com")
 
         response = client.delete(
-            f"{_LISTINGS}/{listing['id']}", headers=_auth_headers(stranger_token)
+            f"{_LISTINGS}/{listing['id']}", headers=auth_headers(stranger_token)
         )
 
         assert response.status_code == 403
@@ -321,7 +317,7 @@ class TestMarkSold:
         token = register_and_login(client, "sold-happy@example.com")
         listing = _create_listing(client, token)
 
-        response = client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=_auth_headers(token))
+        response = client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=auth_headers(token))
 
         assert response.status_code == 200
         body = response.json()
@@ -331,7 +327,7 @@ class TestMarkSold:
     def test_removed_from_public_browse_after_sold(self, client: TestClient) -> None:
         token = register_and_login(client, "sold-hidden@example.com")
         listing = _create_listing(client, token, title="Soon Sold Unique Title")
-        client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=_auth_headers(token))
+        client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=auth_headers(token))
 
         response = client.get(_LISTINGS, params={"search": "Soon Sold Unique Title"})
 
@@ -343,7 +339,7 @@ class TestMarkSold:
         stranger_token = register_and_login(client, "sold-stranger@example.com")
 
         response = client.post(
-            f"{_LISTINGS}/{listing['id']}/sold", headers=_auth_headers(stranger_token)
+            f"{_LISTINGS}/{listing['id']}/sold", headers=auth_headers(stranger_token)
         )
 
         assert response.status_code == 403
@@ -351,9 +347,9 @@ class TestMarkSold:
     def test_already_sold_returns_conflict(self, client: TestClient) -> None:
         token = register_and_login(client, "sold-twice@example.com")
         listing = _create_listing(client, token)
-        client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=_auth_headers(token))
+        client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=auth_headers(token))
 
-        response = client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=_auth_headers(token))
+        response = client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=auth_headers(token))
 
         assert response.status_code == 409
 
@@ -364,10 +360,10 @@ class TestMyListings:
         available = _create_listing(client, token, title="Available One")
         sold = _create_listing(client, token, title="Sold One")
         deleted = _create_listing(client, token, title="Deleted One")
-        client.post(f"{_LISTINGS}/{sold['id']}/sold", headers=_auth_headers(token))
-        client.delete(f"{_LISTINGS}/{deleted['id']}", headers=_auth_headers(token))
+        client.post(f"{_LISTINGS}/{sold['id']}/sold", headers=auth_headers(token))
+        client.delete(f"{_LISTINGS}/{deleted['id']}", headers=auth_headers(token))
 
-        response = client.get(_MY_LISTINGS, headers=_auth_headers(token))
+        response = client.get(_MY_LISTINGS, headers=auth_headers(token))
 
         assert response.status_code == 200
         titles = {item["title"] for item in response.json()}
@@ -391,11 +387,11 @@ class TestMyListingsSummary:
         available = _create_listing(client, token, title="Available Book")
         sold = _create_listing(client, token, title="Sold Book")
         deleted = _create_listing(client, token, title="Deleted Book")
-        client.post(f"{_LISTINGS}/{sold['id']}/sold", headers=_auth_headers(token))
-        client.delete(f"{_LISTINGS}/{deleted['id']}", headers=_auth_headers(token))
+        client.post(f"{_LISTINGS}/{sold['id']}/sold", headers=auth_headers(token))
+        client.delete(f"{_LISTINGS}/{deleted['id']}", headers=auth_headers(token))
         assert available["status"] == "available"  # left untouched
 
-        response = client.get(_MY_LISTINGS_SUMMARY, headers=_auth_headers(token))
+        response = client.get(_MY_LISTINGS_SUMMARY, headers=auth_headers(token))
 
         assert response.status_code == 200
         assert response.json() == {"available": 1, "sold": 1, "deleted": 1}
@@ -403,7 +399,7 @@ class TestMyListingsSummary:
     def test_no_listings_returns_all_zeros(self, client: TestClient) -> None:
         token = register_and_login(client, "summary-empty@example.com")
 
-        response = client.get(_MY_LISTINGS_SUMMARY, headers=_auth_headers(token))
+        response = client.get(_MY_LISTINGS_SUMMARY, headers=auth_headers(token))
 
         assert response.status_code == 200
         assert response.json() == {"available": 0, "sold": 0, "deleted": 0}
@@ -413,7 +409,7 @@ class TestMyListingsSummary:
         other_token = register_and_login(client, "summary-other@example.com")
         _create_listing(client, other_token, title="Not Mine")
 
-        response = client.get(_MY_LISTINGS_SUMMARY, headers=_auth_headers(owner_token))
+        response = client.get(_MY_LISTINGS_SUMMARY, headers=auth_headers(owner_token))
 
         assert response.status_code == 200
         assert response.json() == {"available": 0, "sold": 0, "deleted": 0}
@@ -433,7 +429,7 @@ class TestImageUpload:
         response = client.post(
             f"{_LISTINGS}/{listing['id']}/images",
             files=[("images", ("photo.jpg", _JPEG_BYTES, "image/jpeg"))],
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 201
@@ -455,7 +451,7 @@ class TestImageUpload:
                 ("images", ("a.jpg", _JPEG_BYTES, "image/jpeg")),
                 ("images", ("b.jpg", _JPEG_BYTES, "image/jpeg")),
             ],
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 201
@@ -469,7 +465,7 @@ class TestImageUpload:
         response = client.post(
             f"{_LISTINGS}/{listing['id']}/images",
             files=[("images", ("a.jpg", _JPEG_BYTES, "image/jpeg"))],
-            headers=_auth_headers(stranger_token),
+            headers=auth_headers(stranger_token),
         )
 
         assert response.status_code == 403
@@ -481,7 +477,7 @@ class TestImageUpload:
         response = client.post(
             f"{_LISTINGS}/{listing['id']}/images",
             files=[("images", ("fake.jpg", b"not an image at all", "image/jpeg"))],
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 422
@@ -496,14 +492,14 @@ class TestImageUpload:
         listing = _create_listing(client, token)
         six_files = [("images", (f"{i}.jpg", _JPEG_BYTES, "image/jpeg")) for i in range(6)]
         first = client.post(
-            f"{_LISTINGS}/{listing['id']}/images", files=six_files, headers=_auth_headers(token)
+            f"{_LISTINGS}/{listing['id']}/images", files=six_files, headers=auth_headers(token)
         )
         assert first.status_code == 201
 
         response = client.post(
             f"{_LISTINGS}/{listing['id']}/images",
             files=[("images", ("seventh.jpg", _JPEG_BYTES, "image/jpeg"))],
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 422
@@ -514,12 +510,12 @@ class TestImageUpload:
     def test_sold_listing_rejects_upload(self, client: TestClient) -> None:
         token = register_and_login(client, "images-sold@example.com")
         listing = _create_listing(client, token)
-        client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=_auth_headers(token))
+        client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=auth_headers(token))
 
         response = client.post(
             f"{_LISTINGS}/{listing['id']}/images",
             files=[("images", ("a.jpg", _JPEG_BYTES, "image/jpeg"))],
-            headers=_auth_headers(token),
+            headers=auth_headers(token),
         )
 
         assert response.status_code == 409

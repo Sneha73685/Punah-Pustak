@@ -25,14 +25,18 @@ def _make_settings() -> Settings:
     return Settings()
 
 
-def _make_user(email: str = "reader@example.com", password: str = "correct-horse-battery") -> User:
+def _make_user(
+    email: str = "reader@example.com",
+    password: str = "correct-horse-battery",
+    is_active: bool = True,
+) -> User:
     return User(
         id=uuid.uuid4(),
         email=email,
         password_hash=hash_password(password),
         display_name="Reader",
         role=RoleEnum.USER,
-        is_active=True,
+        is_active=is_active,
         must_change_password=False,
     )
 
@@ -94,6 +98,11 @@ class FakeRefreshTokenRepository:
     def revoke_family(self, family_id: uuid.UUID) -> None:
         for token in self._by_hash.values():
             if token.family_id == family_id:
+                token.revoked = True
+
+    def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
+        for token in self._by_hash.values():
+            if token.user_id == user_id:
                 token.revoked = True
 
 
@@ -159,6 +168,48 @@ class TestLogin:
 
         with pytest.raises(InvalidCredentialsError):
             service.login(email="nobody@example.com", password="whatever-long-enough")
+
+    def test_rejects_suspended_user_despite_correct_password(self, settings: Settings) -> None:
+        """FR-041 (Milestone 4): "A suspended user cannot log in." Reuses
+        the same generic `InvalidCredentialsError` a wrong password
+        produces — see `AuthService.login`'s docstring for why a distinct
+        "suspended" error would leak account-existence/status information.
+        """
+        user = _make_user(password="correct-horse-battery", is_active=False)
+        service = _service(users=FakeUserService([user]), settings=settings)
+
+        with pytest.raises(InvalidCredentialsError):
+            service.login(email=user.email, password="correct-horse-battery")
+
+    def test_suspended_user_gets_identical_envelope_to_wrong_password(
+        self, settings: Settings
+    ) -> None:
+        """No enumeration: a suspended account's rejection must be
+        indistinguishable from a wrong-password rejection for an active
+        one — both are the exact same exception type with the exact same
+        message, not just the same HTTP status.
+        """
+        active_user = _make_user(email="active@example.com", password="correct-horse-battery")
+        suspended_user = _make_user(
+            email="suspended@example.com", password="correct-horse-battery", is_active=False
+        )
+        service = _service(users=FakeUserService([active_user, suspended_user]), settings=settings)
+
+        wrong_password_exc = None
+        suspended_exc = None
+        try:
+            service.login(email=active_user.email, password="wrong-password")
+        except InvalidCredentialsError as exc:
+            wrong_password_exc = exc
+        try:
+            service.login(email=suspended_user.email, password="correct-horse-battery")
+        except InvalidCredentialsError as exc:
+            suspended_exc = exc
+
+        assert wrong_password_exc is not None and suspended_exc is not None
+        assert wrong_password_exc.message == suspended_exc.message
+        assert wrong_password_exc.status_code == suspended_exc.status_code
+        assert wrong_password_exc.code == suspended_exc.code
 
 
 class TestRefresh:
@@ -248,3 +299,35 @@ class TestLogout:
         service = _service(settings=settings)
 
         service.logout(presented_token="never-issued")  # must not raise
+
+
+class TestRevokeAllTokensForUser:
+    """SEC-025 (Milestone 4): the auth-side half of suspending a user —
+    called by `AdminService.suspend_user`.
+    """
+
+    def test_revokes_every_family_for_the_target_user_only(self, settings: Settings) -> None:
+        target = _make_user(email="target@example.com", password="correct-horse-battery")
+        other = _make_user(email="other@example.com", password="correct-horse-battery")
+        refresh_tokens = FakeRefreshTokenRepository()
+        service = AuthService(
+            users=FakeUserService([target, other]), refresh_tokens=refresh_tokens, settings=settings
+        )
+        # Two separate logins for `target` (two separate families), one for `other`.
+        first = service.login(email=target.email, password="correct-horse-battery")
+        second = service.login(email=target.email, password="correct-horse-battery")
+        other_pair = service.login(email=other.email, password="correct-horse-battery")
+
+        service.revoke_all_tokens_for_user(target.id)
+
+        first_stored = refresh_tokens.get_by_hash(hash_refresh_token(first.refresh_token, settings))
+        second_stored = refresh_tokens.get_by_hash(
+            hash_refresh_token(second.refresh_token, settings)
+        )
+        assert first_stored is not None and first_stored.revoked is True
+        assert second_stored is not None and second_stored.revoked is True
+        untouched = refresh_tokens.get_by_hash(
+            hash_refresh_token(other_pair.refresh_token, settings)
+        )
+        assert untouched is not None
+        assert untouched.revoked is False

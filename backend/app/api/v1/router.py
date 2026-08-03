@@ -3,10 +3,7 @@
 Milestone 0 wired up only the health router; Milestone 1 added auth;
 Milestone 2 added listings (both of its routers — see
 `app.modules.listings.router`'s module docstring for why there are two);
-Milestone 3 adds users' own profile router. Admin's router is added to this
-file when its own milestone implements it — no placeholder/stub routers for
-unimplemented modules are added ahead of time, per the instruction not to
-build ahead of the current milestone.
+Milestone 3 added users' own profile router; Milestone 4 adds admin's.
 
 Two different routers (`users.router.router` here, and
 `listings.router.my_listings_router`) share the `/users/me` prefix —
@@ -21,6 +18,7 @@ already established for `my_listings_router`.
 from fastapi import APIRouter
 
 from app.api.v1 import health
+from app.modules.admin.router import router as admin_router
 from app.modules.auth.router import router as auth_router
 from app.modules.listings.router import my_listings_router
 from app.modules.listings.router import router as listings_router
@@ -32,3 +30,4 @@ api_v1_router.include_router(auth_router)
 api_v1_router.include_router(listings_router)
 api_v1_router.include_router(my_listings_router)
 api_v1_router.include_router(users_router)
+api_v1_router.include_router(admin_router)
