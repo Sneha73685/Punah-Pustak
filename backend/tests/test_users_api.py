@@ -14,7 +14,7 @@ used, not just within `users`.
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.modules.users.models import User
+from app.modules.users.models import RoleEnum, User
 from tests.conftest import auth_headers, register_and_login
 
 _ME = "/api/v1/users/me"
@@ -27,13 +27,12 @@ _PASSWORD = "a-long-enough-password"
 
 
 def _force_password_change(db_session: Session, email: str) -> None:
-    """Simulates the state FR-045's admin-assisted reset (Milestone 4, not
-    yet implemented) would produce — there is no admin endpoint yet to
-    trigger this through the API, so the test sets the flag directly via
-    the same `db_session` the `api_client` fixture's requests run against
-    (see conftest.py: both fixtures share one transactionally-isolated
-    session, so this write is visible to subsequent requests in the same
-    test).
+    """Simulates the state FR-045's admin-assisted reset produces, without
+    going through the real `POST /admin/users/{id}/reset-password` endpoint
+    (Milestone 4) — keeping this test scoped to FR-015's own gate, not
+    FR-045's, the same way it always has been. The write is visible to the
+    `api_client` fixture's own requests because both share one
+    transactionally-isolated `db_session` (see conftest.py).
     """
     user = db_session.query(User).filter(User.email == email).one()
     user.must_change_password = True
@@ -50,8 +49,31 @@ class TestGetOwnProfile:
         body = response.json()
         assert body["email"] == "profile-get@example.com"
         assert body["display_name"] == "Reader"
+        assert body["role"] == "user"
         assert "password_hash" not in body
         assert "must_change_password" not in body
+
+    def test_admin_account_reports_admin_role(
+        self, api_client: TestClient, db_session: Session
+    ) -> None:
+        """Bugfix regression (Milestone 5): `role` was missing from
+        `UserPublic` entirely — the frontend's admin UI has no other way
+        to know whether the logged-in user should see it (the JWT payload
+        carries no role claim, by design; see `UserPublic`'s own
+        docstring). Promotes a normally-registered account to admin
+        directly via `db_session`, the same pattern `test_admin_api.py`
+        already uses — there is no self-service way to become an admin.
+        """
+        email = "profile-get-admin@example.com"
+        token = register_and_login(api_client, email)
+        user = db_session.query(User).filter(User.email == email).one()
+        user.role = RoleEnum.ADMIN
+        db_session.flush()
+
+        response = api_client.get(_ME, headers=auth_headers(token))
+
+        assert response.status_code == 200
+        assert response.json()["role"] == "admin"
 
     def test_requires_authentication(self, api_client: TestClient) -> None:
         response = api_client.get(_ME)

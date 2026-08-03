@@ -5,8 +5,10 @@ name: CI
 # gate on. Milestone 1 (auth) is the first milestone with real unit,
 # integration, and API-level tests, so `backend-tests` (with a real,
 # containerized Postgres service, matching docker-compose.yml's `db`
-# service) is added here per TEST-020/§18.4 — accessibility checks stay
-# deferred until there is a frontend (Milestone 5/6) to run them against.
+# service) is added here per TEST-020/§18.4. Milestone 5 (frontend
+# build-out) adds `frontend-tests` (TEST-010: Vitest + RTL component tests)
+# and a production build check alongside the type-check job already in
+# place from that milestone's tooling setup.
 on:
   push:
     branches: [main]
@@ -110,3 +112,27 @@ jobs:
 
       - name: TypeScript strict type-check (FE-001)
         run: npx tsc --noEmit
+
+  frontend-tests:
+    name: Frontend / component tests + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Vitest + React Testing Library (TEST-010, FE-022)
+        run: npm run test
+
+      - name: Production build (DEPLOY-001 — same `tsc && vite build` docker-compose's image runs)
+        run: npm run build

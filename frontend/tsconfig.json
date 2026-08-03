@@ -1,5 +1,12 @@
 {
   "compilerOptions": {
+    // "baseUrl" is required for "paths" below to resolve in this TS
+    // version. The language server flags baseUrl itself as deprecated for
+    // a future TS 7.0 removal with no documented replacement yet; `tsc
+    // --noEmit` (what CI actually runs) does not fail on it, and the
+    // suggested `ignoreDeprecations` suppression value is itself invalid
+    // for this TS version, so it's left as an IDE-only informational note
+    // rather than "fixed" with something that breaks the real build.
     "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -13,7 +20,12 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
   "include": ["src"]
 }

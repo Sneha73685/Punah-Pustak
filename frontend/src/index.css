@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/* FE-010: Tailwind is the styling mechanism; this file exists only to pull
+   it in and set the handful of page-level defaults Tailwind's preflight
+   doesn't opinionatedly set for us (focus visibility, base font). No
+   component-specific CSS belongs here — that's what the component library
+   (src/components) and Tailwind utility classes are for. */
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+/* A11Y-004/A11Y-006: a visible focus ring is non-negotiable for keyboard
+   operability — Tailwind's preflight resets outline styles, so it must be
+   explicitly restored rather than left to browser defaults (which some
+   browsers suppress on mouse-focus in ways that also suppress keyboard
+   focus). */
+:focus-visible {
+  @apply outline outline-2 outline-offset-2 outline-blue-600;
+}

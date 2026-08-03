@@ -26,6 +26,44 @@ Punah-पुस्तक is an online marketplace dedicated to buying and sellin
 
 4. **Doorstep Delivery**: Sit back and relax as your purchased books are delivered right to your doorstep, ensuring a seamless and convenient shopping experience.
 
+## Development Setup (V2)
+
+The V2 rewrite (see `SRS-v2.1.0.md`) is a FastAPI backend (`backend/`) and a
+React + TypeScript frontend (`frontend/`), containerized via
+`docker-compose.yml`. This section is kept in sync with the current state
+of that rewrite as milestones land; see `IMPLEMENTATION_SUMMARY.md` for the
+full decision log behind it.
+
+**Prerequisites**: Docker and Docker Compose.
+
+```bash
+docker compose up
+```
+
+This starts Postgres (`db`), MinIO object storage (`storage` +
+`storage-init`), the API (`api`, on `http://localhost:8000`), and the
+frontend dev server (`web`, on `http://localhost:5173`). On first run,
+apply database migrations:
+
+```bash
+docker compose exec api alembic upgrade head
+```
+
+**Running tests locally**:
+
+```bash
+# Backend (from backend/, with a Python 3.12 virtualenv active)
+pip install -e ".[dev]"
+ruff check . && ruff format --check . && mypy app alembic tests
+pytest
+
+# Frontend (from frontend/)
+npm ci
+npx tsc --noEmit
+npm run test
+npm run build
+```
+
 ## Contributing
 
 We welcome contributions from the community to improve and enhance Punah-पुस्तक. If you have suggestions, bug reports, or would like to contribute code, please feel free to submit a pull request or open an issue on our GitHub repository.
