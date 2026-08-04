@@ -1,0 +1,8 @@
+# Normalize line endings for text files; let Git decide binary vs. text
+# for everything else rather than guessing per-extension.
+* text=auto eol=lf
+
+# Generated — never hand-edited (see docs/frontend.md#api-layer-srcapi).
+# Excluded from GitHub's diff view and language statistics so a
+# regeneration doesn't look like a wall of manual changes.
+frontend/src/api/schema.ts linguist-generated=true -diff
