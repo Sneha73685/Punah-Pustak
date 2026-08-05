@@ -219,16 +219,18 @@ Punah-Pustak/
 │   ├── tests/                   pytest: unit, integration, API-level
 │   └── pyproject.toml            dependencies, Ruff/mypy/pytest config
 ├── frontend/                 React + TypeScript SPA
-│   └── src/
-│       ├── api/                generated OpenAPI types + typed fetch wrappers per resource
-│       ├── auth/                AuthContext, ProtectedRoute
-│       ├── components/           shared UI library + cross-page components
-│       ├── hooks/                 TanStack Query hooks (one file per resource)
-│       ├── lib/                    small framework-agnostic helpers
-│       └── pages/                  one file per route, plus pages/admin/
+│   ├── src/
+│   │   ├── api/                generated OpenAPI types + typed fetch wrappers per resource
+│   │   ├── auth/                AuthContext, ProtectedRoute
+│   │   ├── components/           shared UI library + cross-page components
+│   │   ├── hooks/                 TanStack Query hooks (one file per resource)
+│   │   ├── lib/                    small framework-agnostic helpers
+│   │   └── pages/                  one file per route, plus pages/admin/
+│   └── vercel.json              Vercel build config + SPA rewrite (production frontend hosting)
 ├── docs/                      in-depth documentation (see below)
 ├── SRS-v2.1.0.md              the governing requirements specification
 ├── IMPLEMENTATION_SUMMARY.md   the full engineering decision log, by milestone
+├── render.yaml                 Render Blueprint for the API + managed Postgres (production backend hosting)
 └── docker-compose.yml          the entire local stack: db, storage, storage-init, api, web
 ```
 
@@ -242,7 +244,7 @@ Deeper documentation lives in [`docs/`](docs/):
 | [`docs/database.md`](docs/database.md) | Full ERD, every table/column, indexes, migration strategy |
 | [`docs/authentication.md`](docs/authentication.md) | JWT/refresh-token lifecycle, password hashing, suspension semantics |
 | [`docs/api.md`](docs/api.md) | Full endpoint reference, error envelope, pagination |
-| [`docs/deployment.md`](docs/deployment.md) | Local Docker Compose, production topology, what's not yet built |
+| [`docs/deployment.md`](docs/deployment.md) | Local Docker Compose, the exact production deployment process (Vercel/Render/Postgres/S3), what's not yet built |
 | [`docs/testing.md`](docs/testing.md) | Test suite structure, coverage, and an honest gap analysis |
 | [`docs/development.md`](docs/development.md) | Day-to-day contributor workflow |
 | [`docs/contributing.md`](docs/contributing.md) | How to propose and land a change |
@@ -354,7 +356,7 @@ docker compose build api   # after editing backend/pyproject.toml
 docker compose build web   # after editing frontend/package.json
 ```
 
-Full production-topology notes (what this repository does *not* yet include — a staging environment, an automated deploy pipeline) are in [`docs/deployment.md`](docs/deployment.md).
+The exact production deployment process (Vercel for the frontend, Render for the API, managed Postgres, S3-compatible storage) and what this repository still doesn't include (a staging environment, an automated CD pipeline) are both in [`docs/deployment.md`](docs/deployment.md).
 
 ## Environment Variables
 
@@ -393,7 +395,7 @@ ruff check . && ruff format --check . && mypy app alembic tests
 pytest
 ```
 
-287 tests (unit, integration against a real containerized Postgres, and API-level via FastAPI's `TestClient`), **99% overall coverage**, **100%** on every `service`/`repository` module. Integration tests run inside a rolled-back transaction per test and are re-run in randomized order in CI to catch order-dependent bugs.
+292 tests (unit, integration against a real containerized Postgres, and API-level via FastAPI's `TestClient`), **99% overall coverage**, **100%** on every `service`/`repository` module. Integration tests run inside a rolled-back transaction per test and are re-run in randomized order in CI to catch order-dependent bugs.
 
 ### Frontend (Vitest + React Testing Library)
 
@@ -441,7 +443,7 @@ Full detail, including branch naming and commit-message conventions: [`docs/deve
 The SRS defines eight milestones (0 through 7). **Milestones 0–5 are complete**: foundations, authentication, listings, profile management, administration, and the full frontend. The following are explicitly **not yet built** — not partially done, not silently skipped, genuinely not started:
 
 - **Milestone 6 — Accessibility polish**: an automated `axe-core` accessibility regression gate in CI. The component library already implements the underlying mechanics (label association, modal focus trapping, keyboard operability) but there is no automated check enforcing WCAG 2.1 AA compliance yet.
-- **Milestone 7 — Hardening and release readiness**: a committed Playwright end-to-end test suite; a one-time load test against the NFR-001 performance target; production deployment documentation beyond what's in `docs/deployment.md` today; CSRF/security-header verification as an automated (not just manual) check.
+- **Milestone 7 — Hardening and release readiness**: a committed Playwright end-to-end test suite; a one-time load test against the NFR-001 performance target; CSRF/security-header verification as an automated (not just manual) check. (The production deployment process itself — Vercel, Render, managed Postgres, S3-compatible storage — is documented and configured; see [`docs/deployment.md`](docs/deployment.md).)
 
 Beyond the SRS's own plan, explicitly out of scope for *any* future milestone unless a new SRS revision says otherwise (see [SRS §4, Non-Goals](SRS-v2.1.0.md#4-non-goals)): payments/escrow, in-app messaging, shipping integration, push/email notifications, recommendations, and social features.
 

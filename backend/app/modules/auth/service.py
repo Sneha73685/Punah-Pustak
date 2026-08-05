@@ -57,6 +57,7 @@ class RefreshTokenRepositoryProtocol(Protocol):
         self, *, user_id: uuid.UUID, token_hash: str, family_id: uuid.UUID, expires_at: datetime
     ) -> RefreshToken: ...
     def get_by_hash(self, token_hash: str) -> RefreshToken | None: ...
+    def get_by_hash_for_update(self, token_hash: str) -> RefreshToken | None: ...
     def revoke(self, token: RefreshToken) -> None: ...
     def revoke_family(self, family_id: uuid.UUID) -> None: ...
     def revoke_all_for_user(self, user_id: uuid.UUID) -> None: ...
@@ -127,9 +128,33 @@ class AuthService:
         """SEC-023/024: rotate on every use; presenting an already-rotated
         (revoked) token is treated as evidence of theft and revokes the
         entire family, forcing full re-authentication.
+
+        Reads via `get_by_hash_for_update` (a row lock), not the plain
+        `get_by_hash` — without it, two requests presenting the same
+        not-yet-rotated token concurrently (e.g. two tabs of one session
+        both restoring on mount) both observe `revoked=False` before either
+        commits, so both rotate it: at least two valid tokens end up
+        issued from what should be a single linear chain, and a stolen
+        -token replay racing a legitimate refresh could win outright
+        instead of being caught. The lock makes exactly one such request
+        the winner, deterministically.
+
+        Known residual limitation, not fixed by the lock above: the
+        *loser* of that race, once unblocked, correctly finds the token
+        `revoked` and revokes the whole family (`revoke_family` below) —
+        which also revokes the *winner's* brand-new token, since family
+        -wide revocation can't distinguish "this is stale reuse from
+        earlier" from "this was rotated a few milliseconds ago by a
+        concurrent, equally-legitimate request." So a genuine multi-tab
+        race can still force a full re-login for the tab that "won." Fully
+        closing this would need a time-boxed grace period on top of the
+        reuse check (the standard mitigation real-world OAuth providers
+        use for exactly this race) — that's a real behavior change to the
+        reuse-detection model, not a bugfix, so it's left as a documented
+        trade-off rather than made here.
         """
         token_hash = hash_refresh_token(presented_token, self._settings)
-        stored = self._refresh_tokens.get_by_hash(token_hash)
+        stored = self._refresh_tokens.get_by_hash_for_update(token_hash)
 
         if stored is None or stored.expires_at < datetime.now(UTC):
             raise InvalidRefreshTokenError()

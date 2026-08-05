@@ -350,6 +350,24 @@ class TestGetByIdAndOwner:
 
         assert [listing.id for listing in result] == [mine.id]
 
+    def test_get_for_update_round_trips(self, db_session: Session) -> None:
+        """`get_for_update` (used by `ListingService.upload_images` to
+        close the concurrent-upload race — see its own docstring) locks the
+        row it returns; this only proves it still returns the right row,
+        since a single-session test can't observe blocking against itself.
+        """
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        listing = _make_listing(repo, owner.id)
+
+        fetched = repo.get_for_update(listing.id)
+
+        assert fetched is not None
+        assert fetched.id == listing.id
+
+    def test_get_for_update_returns_none_for_unknown(self, db_session: Session) -> None:
+        assert ListingRepository(db_session).get_for_update(uuid.uuid4()) is None
+
 
 class TestStatusTransitions:
     def test_mark_sold_sets_status_and_sold_at(self, db_session: Session) -> None:

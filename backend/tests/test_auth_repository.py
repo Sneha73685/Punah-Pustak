@@ -100,6 +100,29 @@ class TestRefreshTokenRepository:
         assert found.family_id == family_id
         assert found.revoked is False
 
+    def test_get_by_hash_for_update_round_trips(self, db_session: Session) -> None:
+        """`get_by_hash_for_update` (used by `AuthService.refresh` to close
+        the concurrent-refresh race — see its own docstring) locks the row
+        it returns; this only proves it still returns the right row, since
+        a single-session test can't observe blocking against itself.
+        """
+        user = _make_user(db_session)
+        repo = RefreshTokenRepository(db_session)
+        created = repo.create(
+            user_id=user.id,
+            token_hash="locked-token-hash",
+            family_id=uuid.uuid4(),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+        )
+
+        found = repo.get_by_hash_for_update("locked-token-hash")
+
+        assert found is not None
+        assert found.id == created.id
+
+    def test_get_by_hash_for_update_returns_none_for_unknown(self, db_session: Session) -> None:
+        assert RefreshTokenRepository(db_session).get_by_hash_for_update("nope") is None
+
     def test_revoke_marks_single_token(self, db_session: Session) -> None:
         user = _make_user(db_session)
         repo = RefreshTokenRepository(db_session)

@@ -13,7 +13,6 @@ export type RegisterRequest = components["schemas"]["RegisterRequest"];
 export type LoginRequest = components["schemas"]["LoginRequest"];
 export type AccessTokenResponse = components["schemas"]["AccessTokenResponse"];
 
-export type UserRole = components["schemas"]["RoleEnum"];
 export type UserPublic = components["schemas"]["UserPublic"];
 export type UserUpdate = components["schemas"]["UserUpdate"];
 export type PasswordChangeRequest = components["schemas"]["PasswordChangeRequest"];

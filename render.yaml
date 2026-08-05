@@ -1,0 +1,56 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec) for the
+# Punah-Pustak API. Provisions the web service (built from the existing
+# backend/Dockerfile -- no separate production Dockerfile needed) and a
+# managed Postgres instance. Object storage (S3/R2/B2) is external to
+# Render and configured entirely via the STORAGE_* env vars below -- see
+# docs/deployment.md for provider options and exact values.
+#
+# `sync: false` marks a variable that must be set by hand in the Render
+# dashboard (a secret, or a value with no safe default to commit here)
+# rather than one this file supplies directly.
+
+databases:
+  - name: punah-pustak-db
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: punah-pustak-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: punah-pustak-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ACCESS_TOKEN_TTL_MINUTES
+        value: "15"
+      - key: REFRESH_TOKEN_TTL_DAYS
+        value: "30"
+      - key: AUTH_RATE_LIMIT_PER_MINUTE
+        value: "10"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false # the deployed Vercel frontend's exact origin, e.g. https://punah-pustak.vercel.app
+      - key: STORAGE_ENDPOINT_URL
+        sync: false # e.g. https://s3.us-east-1.amazonaws.com, or the R2/B2 equivalent
+      - key: STORAGE_PUBLIC_URL
+        sync: false # the bucket's public/CDN base URL -- see docs/deployment.md
+      - key: STORAGE_BUCKET
+        sync: false
+      - key: STORAGE_ACCESS_KEY
+        sync: false
+      - key: STORAGE_SECRET_KEY
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: LOG_LEVEL
+        value: INFO

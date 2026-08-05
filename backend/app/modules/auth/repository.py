@@ -38,6 +38,31 @@ class RefreshTokenRepository:
             self._db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).one_or_none()
         )
 
+    def get_by_hash_for_update(self, token_hash: str) -> RefreshToken | None:
+        """Row-locking variant of `get_by_hash`, used only by
+        `AuthService.refresh`.
+
+        Without this, two requests presenting the same not-yet-rotated
+        refresh token concurrently (e.g. two tabs of the same session both
+        restoring on mount) both read `revoked=False` before either
+        commits, so both rotate it and both mint a new token — a stolen
+        -token replay racing a legitimate refresh could win outright, and
+        even with no attacker involved, one of the two freshly-issued
+        tokens ends up orphaned outside the family's single active branch.
+        `SELECT ... FOR UPDATE` here makes the second request's transaction
+        block until the first commits, so it deterministically observes the
+        first request's rotation and takes the reuse-detected path instead
+        of racing it. `get_by_hash` (unlocked) is still used by `logout`,
+        which only ever revokes — a redundant concurrent revoke is a
+        harmless no-op, so it doesn't need this.
+        """
+        return (
+            self._db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == token_hash)
+            .with_for_update()
+            .one_or_none()
+        )
+
     def revoke(self, token: RefreshToken) -> None:
         token.revoked = True
         self._db.flush()

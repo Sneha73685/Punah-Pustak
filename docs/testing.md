@@ -12,7 +12,7 @@ pytest -p no:randomly           # fixed order, for debugging a failure
 coverage report --include="app/modules/*/service.py,app/modules/*/repository.py" --fail-under=85
 ```
 
-**Current state:** 287 tests, 99% overall coverage, **100%** on every `service`/`repository` module (the CI gate requires ≥85% on that scope; the actual figure is higher because the layering in `architecture.md` makes those modules straightforward to test exhaustively with fakes).
+**Current state:** 292 tests, 99% overall coverage, **100%** on every `service`/`repository` module (the CI gate requires ≥85% on that scope; the actual figure is higher because the layering in `architecture.md` makes those modules straightforward to test exhaustively with fakes).
 
 ### Test types, and where each lives
 
