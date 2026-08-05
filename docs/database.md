@@ -156,7 +156,10 @@ alembic revision --autogenerate -m "description"
 
 There is exactly one migration in this repository today — the schema hasn't changed since Milestone 0. Every milestone since has re-run `alembic revision --autogenerate` against its own model changes and confirmed an **empty diff** wherever no schema change was actually needed (e.g. adding a `role` field to a Pydantic response schema touches no ORM model at all), which is itself a form of verification that the ORM models and the actual database schema haven't drifted apart.
 
+`alembic upgrade head` above is what you'd run by hand against your own local database. In every containerized environment (local Docker Compose and production alike), it also runs automatically, once, before the application starts — see [`deployment.md`](deployment.md#automatic-migrations-on-startup).
+
 ## Related documents
 
 - [`backend.md`](backend.md) — the repository layer that queries these tables
 - [`architecture.md`](architecture.md) — why Postgres, why generated-column search
+- [`deployment.md`](deployment.md) — how and why migrations run automatically on container startup

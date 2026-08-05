@@ -217,6 +217,7 @@ Punah-Pustak/
 │   │       └── storage/       StorageBackend interface + S3 implementation
 │   ├── alembic/                 schema migrations (one, hand-written: 0001_initial_schema)
 │   ├── tests/                   pytest: unit, integration, API-level
+│   ├── docker-entrypoint.sh      applies migrations, then execs the app — every environment
 │   └── pyproject.toml            dependencies, Ruff/mypy/pytest config
 ├── frontend/                 React + TypeScript SPA
 │   ├── src/
@@ -324,11 +325,7 @@ cd Punah-Pustak
 docker compose up
 ```
 
-Wait for all services to report healthy, then apply the database schema (one-time, and again after pulling any future migration):
-
-```bash
-docker compose exec api alembic upgrade head
-```
+That's it — the `api` container's entrypoint ([`backend/docker-entrypoint.sh`](backend/docker-entrypoint.sh)) applies the database schema automatically (`alembic upgrade head`) before the API starts, on every boot, so there's no separate migration command to remember on a fresh clone or after pulling a future migration.
 
 Open the app:
 - Frontend: <http://localhost:5173>
@@ -346,7 +343,7 @@ That's the entire setup — no manual database creation, no manual bucket setup 
 | `db` | `postgres:16` | The database. Persists to a named volume. |
 | `storage` | `minio/minio` | S3-compatible object storage for listing images. |
 | `storage-init` | `minio/mc` | One-shot: creates the bucket and sets it public-readable, then exits. |
-| `api` | `backend/Dockerfile` | FastAPI, live-reloading against a bind-mounted `backend/app`. |
+| `api` | `backend/Dockerfile` | FastAPI, live-reloading against a bind-mounted `backend/app`. Its entrypoint ([`backend/docker-entrypoint.sh`](backend/docker-entrypoint.sh)) applies migrations before every start — see [`docs/deployment.md`](docs/deployment.md#automatic-migrations-on-startup). |
 | `web` | `frontend/Dockerfile` | Vite dev server, live-reloading against a bind-mounted `frontend/src`. |
 
 Rebuilding after a dependency change (not just a source-file change, which hot-reloads automatically):
@@ -431,7 +428,7 @@ Full detail and the reasoning behind each choice: [`docs/authentication.md`](doc
 
 ## Development Workflow
 
-1. Bring up the stack: `docker compose up`, then `docker compose exec api alembic upgrade head` once.
+1. Bring up the stack: `docker compose up`. Migrations apply automatically on container start — no separate step.
 2. Backend changes hot-reload via the bind-mounted `backend/app`; frontend changes hot-reload via Vite. No rebuild needed for source edits — only for dependency changes (see [Docker](#docker)).
 3. Before committing, run the same checks CI runs (`pre-commit install` wires the backend ones — Ruff, Ruff format, mypy strict — to run automatically on `git commit`; run the frontend and test suites manually).
 4. Open a PR against `main`. CI must be green (lint, type-check, backend tests + coverage gate, frontend tests + build) before it's mergeable.

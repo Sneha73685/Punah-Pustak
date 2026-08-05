@@ -10,8 +10,9 @@ Both are legitimate; pick based on what you're doing.
 
 ```bash
 docker compose up
-docker compose exec api alembic upgrade head   # first run, and after any future migration
 ```
+
+Migrations apply automatically — the `api` image's entrypoint ([`../backend/docker-entrypoint.sh`](../backend/docker-entrypoint.sh)) runs `alembic upgrade head` before every start, so there's no separate migration command after a fresh clone or a `git pull` that brought a new migration. See [`deployment.md`](deployment.md#automatic-migrations-on-startup) for why this is safe and what it replaced.
 
 Everything (`db`, `storage`, `storage-init`, `api`, `web`) runs containerized. `api` bind-mounts `backend/app` and `backend/alembic`; `web` bind-mounts `frontend/src` and `frontend/index.html`. Editing a source file under either mount takes effect immediately — `uvicorn --reload` and the Vite dev server both pick it up with no container restart. This is the right choice for frontend work, for exercising the full stack end to end, and for anyone who doesn't want a local Python/Node toolchain at all.
 
@@ -39,7 +40,8 @@ cp .env.example .env
 # db/storage (docker-compose's internal network names) to localhost —
 # the two containers still publish 5432 and 9000 to the host.
 
-alembic upgrade head
+alembic upgrade head   # this path runs outside Docker entirely, so
+                       # docker-entrypoint.sh never runs — still a manual step here
 uvicorn app.main:app --reload
 ```
 

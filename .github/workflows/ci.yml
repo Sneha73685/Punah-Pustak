@@ -80,7 +80,7 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      - name: Apply migrations (DEPLOY-022 — explicit step, not on app boot)
+      - name: Apply migrations (sets up this job's ephemeral test database — see docs/deployment.md for how production migrates)
         run: alembic upgrade head
 
       - name: pytest (TEST-001/002/003, randomized order via pytest-randomly)
