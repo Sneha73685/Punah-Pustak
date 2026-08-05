@@ -393,7 +393,7 @@ ruff check . && ruff format --check . && mypy app alembic tests
 pytest
 ```
 
-287 tests (unit, integration against a real containerized Postgres, and API-level via FastAPI's `TestClient`), **99% overall coverage**, **100%** on every `service`/`repository` module. Integration tests run inside a rolled-back transaction per test and are re-run in randomized order in CI to catch order-dependent bugs.
+292 tests (unit, integration against a real containerized Postgres, and API-level via FastAPI's `TestClient`), **99% overall coverage**, **100%** on every `service`/`repository` module. Integration tests run inside a rolled-back transaction per test and are re-run in randomized order in CI to catch order-dependent bugs.
 
 ### Frontend (Vitest + React Testing Library)
 

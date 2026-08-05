@@ -47,6 +47,7 @@ class ListingRepositoryProtocol(Protocol):
     def browse(self, *, filters: ListingFilters, page: int, page_size: int) -> Page: ...
     def list_all(self, *, status: ListingStatusEnum | None, page: int, page_size: int) -> Page: ...
     def get_by_id(self, listing_id: uuid.UUID) -> Listing | None: ...
+    def get_for_update(self, listing_id: uuid.UUID) -> Listing | None: ...
     def get_by_owner(self, owner_id: uuid.UUID) -> list[Listing]: ...
     def count_by_owner_status(self, owner_id: uuid.UUID) -> dict[ListingStatusEnum, int]: ...
     def create(
@@ -241,8 +242,18 @@ class ListingService:
         the last call in this method, not interleaved with the storage
         writes, so a storage failure can never leave a DB row pointing at
         an object that was never actually written.
+
+        Fetches the listing via `get_for_update` (a `SELECT ... FOR UPDATE`
+        row lock) rather than the plain `_get_or_404` every other method
+        here uses: this method reads `count_images()` and then writes new
+        image rows in the same request, and those two steps need to be
+        atomic against a second concurrent upload to the *same* listing —
+        see `ListingRepository.get_for_update`'s docstring for the
+        duplicate-position/over-the-cap bug this closes.
         """
-        listing = self._get_or_404(listing_id)
+        listing = self._listings.get_for_update(listing_id)
+        if listing is None:
+            raise NotFoundError("Listing not found.")
         self._require_owner(listing, requester)
         # Extends FR-028's "only mutate an available listing" principle to
         # image upload (not itself named by FR-028's "edit" wording, but

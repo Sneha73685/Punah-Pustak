@@ -153,6 +153,25 @@ class ListingRepository:
         )
         return self._db.scalars(query).unique().one_or_none()
 
+    def get_for_update(self, listing_id: uuid.UUID) -> Listing | None:
+        """Row-locking variant of `get_by_id`, used only by
+        `ListingService.upload_images`.
+
+        Without this, two concurrent upload requests for the same listing
+        both read the same `count_images()` value before either commits,
+        so both can pass the `MAX_IMAGES_PER_LISTING` check and both write
+        — the listing ends up with more than 6 images, and both batches
+        start numbering `position` from the same stale count, producing
+        duplicate positions. `SELECT ... FOR UPDATE` here makes the second
+        request's transaction block until the first commits, so its
+        `count_images()` read (immediately after this call, inside the same
+        transaction) reflects the first request's writes. Not used by any
+        read path (`browse`, `get_by_id`, `get_by_owner`) — those have no
+        corresponding write in the same request to serialize against.
+        """
+        query = select(Listing).where(Listing.id == listing_id).with_for_update()
+        return self._db.scalars(query).one_or_none()
+
     def get_by_owner(self, owner_id: uuid.UUID) -> list[Listing]:
         """FR-025: My Listings — every status, no filtering. Orders by
         `created_at DESC, id DESC` — see `list_all`'s docstring for why

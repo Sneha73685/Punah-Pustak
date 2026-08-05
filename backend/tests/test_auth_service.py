@@ -92,6 +92,12 @@ class FakeRefreshTokenRepository:
     def get_by_hash(self, token_hash: str) -> RefreshToken | None:
         return self._by_hash.get(token_hash)
 
+    def get_by_hash_for_update(self, token_hash: str) -> RefreshToken | None:
+        """The fake has no real transaction/locking to model — a single
+        in-memory dict lookup is equivalent for a single-threaded test.
+        """
+        return self._by_hash.get(token_hash)
+
     def revoke(self, token: RefreshToken) -> None:
         token.revoked = True
 

@@ -78,7 +78,7 @@ export function ListingDetailPage(): React.JSX.Element {
                 ))}
               </div>
             ) : (
-              <div className="flex aspect-square items-center justify-center rounded-md bg-slate-100 text-sm text-slate-400">
+              <div className="flex aspect-square items-center justify-center rounded-md bg-slate-100 text-sm text-slate-600">
                 No images
               </div>
             )}

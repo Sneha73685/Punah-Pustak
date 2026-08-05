@@ -122,6 +122,12 @@ class FakeListingRepository:
     def get_by_id(self, listing_id: uuid.UUID) -> Listing | None:
         return self._by_id.get(listing_id)
 
+    def get_for_update(self, listing_id: uuid.UUID) -> Listing | None:
+        """The fake has no real transaction/locking to model — a single
+        in-memory dict lookup is equivalent for a single-threaded test.
+        """
+        return self._by_id.get(listing_id)
+
     def get_by_owner(self, owner_id: uuid.UUID) -> list[Listing]:
         return [listing for listing in self._by_id.values() if listing.owner_id == owner_id]
 
@@ -393,6 +399,14 @@ class TestUploadImages:
         with pytest.raises(ForbiddenError):
             service.upload_images(
                 listing_id=listing.id, requester=_make_user(), files=[_JPEG_BYTES]
+            )
+
+    def test_nonexistent_listing_is_not_found(self) -> None:
+        service = _service(FakeListingRepository([]))
+
+        with pytest.raises(NotFoundError):
+            service.upload_images(
+                listing_id=uuid.uuid4(), requester=_make_user(), files=[_JPEG_BYTES]
             )
 
     @pytest.mark.parametrize("status", [ListingStatusEnum.SOLD, ListingStatusEnum.DELETED])
