@@ -84,6 +84,38 @@ class Settings(BaseSettings):
     # --- Logging (NFR-006) ------------------------------------------------------
     log_level: str = "INFO"
 
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_database_url_driver(cls, value: str) -> str:
+        """Coerce a bare `postgresql://`/`postgres://` URL to explicitly use
+        the psycopg3 driver this project installs (`psycopg[binary]`,
+        db.py's "synchronous SQLAlchemy with the psycopg3 driver").
+
+        Managed Postgres providers (Render, Railway, and Heroku-style URLs
+        generally) hand out a plain libpq connection string with no
+        SQLAlchemy driver qualifier — e.g. Render's `fromDatabase:
+        connectionString` in render.yaml. SQLAlchemy's default dialect for
+        a bare `postgresql://` scheme is **psycopg2**, not psycopg3
+        (confirmed directly: `create_engine("postgresql://...")` raises
+        `ModuleNotFoundError: No module named 'psycopg2'` in this exact
+        environment, since only `psycopg[binary]` is installed) — without
+        this normalization, pasting a provider's connection string
+        straight into `DATABASE_URL` crashes the app at engine-creation
+        time, not at import time, so it surfaces as a boot-time crash in
+        production rather than anything a local run or the test suite
+        (which already sets a `+psycopg`-qualified `DATABASE_URL`) would
+        catch. Rewriting the scheme here, once, is what makes "paste
+        whatever the provider gives you" actually work, instead of
+        requiring every deployment target to know to hand-edit the URL.
+        Already-qualified URLs (this class's own local-dev default
+        included) are left untouched.
+        """
+        if value.startswith("postgres://"):
+            value = "postgresql://" + value.removeprefix("postgres://")
+        if value.startswith("postgresql://"):
+            value = "postgresql+psycopg://" + value.removeprefix("postgresql://")
+        return value
+
     @field_validator("cors_allowed_origins")
     @classmethod
     def _no_wildcard_origin(cls, value: str) -> str:

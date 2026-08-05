@@ -1,0 +1,19 @@
+# Mirrors the backend-relevant entries in the root .gitignore. None of
+# these are ever COPY'd into the image (the Dockerfile only copies
+# pyproject.toml, app/, alembic/, alembic.ini explicitly) -- excluding them
+# from the build context just avoids sending hundreds of MB of local venv
+# and tool caches to the Docker daemon on every build.
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+*.env
+!.env.example
+.git/
+.DS_Store

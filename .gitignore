@@ -22,3 +22,5 @@ frontend/dist/
 .DS_Store
 .idea/
 .vscode/
+
+punah-pustak-render_accessKeys.csv

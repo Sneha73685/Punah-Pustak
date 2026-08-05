@@ -36,3 +36,53 @@ class TestProductionConfigValidation:
         settings = Settings(environment="local")
 
         assert settings.cookie_secure is True  # the field's own default, not overridden
+
+
+class TestDatabaseUrlDriverNormalization:
+    """Managed Postgres providers (Render, Railway, Heroku-style) hand out a
+    bare `postgresql://`/`postgres://` connection string with no SQLAlchemy
+    driver qualifier. SQLAlchemy's default dialect for that bare scheme is
+    psycopg2, not the psycopg3 this project installs (`psycopg[binary]`) —
+    confirmed directly against this project's own dependencies:
+    `create_engine("postgresql://...")` raises `ModuleNotFoundError: No
+    module named 'psycopg2'` without this normalization, which is exactly
+    the crash a first production deploy hit. `_normalize_database_url_driver`
+    rewrites the scheme so pasting a provider's connection string straight
+    into `DATABASE_URL` just works.
+    """
+
+    def test_bare_postgresql_scheme_gets_psycopg_driver(self) -> None:
+        settings = Settings(database_url="postgresql://user:pass@host:5432/db")
+
+        assert settings.database_url == "postgresql+psycopg://user:pass@host:5432/db"
+
+    def test_legacy_postgres_scheme_gets_psycopg_driver(self) -> None:
+        """`postgres://` (no trailing 'ql') is the older, still-common alias
+        some providers use — normalized the same way.
+        """
+        settings = Settings(database_url="postgres://user:pass@host:5432/db")
+
+        assert settings.database_url == "postgresql+psycopg://user:pass@host:5432/db"
+
+    def test_already_qualified_url_is_untouched(self) -> None:
+        settings = Settings(database_url="postgresql+psycopg://user:pass@host:5432/db")
+
+        assert settings.database_url == "postgresql+psycopg://user:pass@host:5432/db"
+
+    def test_local_dev_default_is_already_qualified_and_unaffected(self) -> None:
+        settings = Settings()
+
+        assert (
+            settings.database_url == "postgresql+psycopg://punah:punah@localhost:5432/punah_pustak"
+        )
+
+    def test_normalized_url_resolves_to_the_installed_psycopg3_driver(self) -> None:
+        """End-to-end proof, not just string manipulation: the normalized
+        URL actually makes SQLAlchemy pick the driver this project installs.
+        """
+        from sqlalchemy import create_engine
+
+        settings = Settings(database_url="postgresql://user:pass@host:5432/db")
+        engine = create_engine(settings.database_url)
+
+        assert engine.dialect.driver == "psycopg"
