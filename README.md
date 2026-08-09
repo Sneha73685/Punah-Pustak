@@ -13,23 +13,39 @@ A peer-to-peer marketplace for buying and selling pre-owned books, rebuilt from 
 
 ## Table of Contents
 
-- [Project Overview](#project-overview)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [System Architecture](#system-architecture)
-- [Repository Structure](#repository-structure)
-- [Database](#database)
-- [API](#api)
-- [Installation](#installation)
-- [Docker](#docker)
-- [Environment Variables](#environment-variables)
-- [Running Tests](#running-tests)
-- [Security](#security)
-- [Development Workflow](#development-workflow)
-- [Roadmap](#roadmap)
-- [License](#license)
-- [Contributors](#contributors)
-- [Acknowledgements](#acknowledgements)
+- [Punah-Pustak](#punah-pustak)
+  - [Table of Contents](#table-of-contents)
+  - [Project Overview](#project-overview)
+  - [Features](#features)
+    - [User Features (any registered account)](#user-features-any-registered-account)
+    - [Seller Features (any registered account, acting on their own listings)](#seller-features-any-registered-account-acting-on-their-own-listings)
+    - [Administrator Features](#administrator-features)
+  - [Technology Stack](#technology-stack)
+  - [System Architecture](#system-architecture)
+    - [Overall architecture](#overall-architecture)
+    - [Backend architecture](#backend-architecture)
+    - [Frontend architecture](#frontend-architecture)
+    - [Request flow (example: browsing listings)](#request-flow-example-browsing-listings)
+    - [Authentication flow](#authentication-flow)
+    - [Authorization](#authorization)
+    - [Storage flow](#storage-flow)
+  - [Repository Structure](#repository-structure)
+  - [Database](#database)
+  - [API](#api)
+  - [Installation](#installation)
+  - [Docker](#docker)
+  - [Environment Variables](#environment-variables)
+  - [Running Tests](#running-tests)
+    - [Backend (pytest)](#backend-pytest)
+    - [Frontend (Vitest + React Testing Library)](#frontend-vitest--react-testing-library)
+    - [End-to-end (Playwright)](#end-to-end-playwright)
+    - [Coverage](#coverage)
+  - [Security](#security)
+  - [Development Workflow](#development-workflow)
+  - [Roadmap](#roadmap)
+  - [License](#license)
+  - [Contributors](#contributors)
+  - [Acknowledgements](#acknowledgements)
 
 ---
 
@@ -320,7 +336,7 @@ List endpoints use offset pagination (`page`, `page_size`, capped at 50), return
 From a completely fresh clone, with **Docker and Docker Compose** as the only prerequisite:
 
 ```bash
-git clone <this-repository-url>
+git clone <(https://github.com/Sneha73685/Punah-Pustak)>
 cd Punah-Pustak
 docker compose up
 ```
