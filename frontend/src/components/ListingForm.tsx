@@ -103,71 +103,96 @@ export function ListingForm({
   const fieldError = (field: string): string | undefined => clientErrors[field] ?? serverFieldErrors[field];
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
-      <Input
-        label="Title"
-        required
-        value={values.title}
-        onChange={(e) => set("title", e.target.value)}
-        error={fieldError("title")}
-      />
-      <Input
-        label="Author"
-        required
-        value={values.author}
-        onChange={(e) => set("author", e.target.value)}
-        error={fieldError("author")}
-      />
-      <div className="flex flex-col gap-1">
-        <label htmlFor="listing-description" className="text-sm font-medium text-slate-800">
-          Description<span aria-hidden="true" className="ml-0.5 text-red-700">*</span>
-        </label>
-        <textarea
-          id="listing-description"
+    <form className="flex flex-col gap-8" onSubmit={(e) => void handleSubmit(e)} noValidate>
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="font-serif text-lg font-semibold text-ink">Book details</h2>
+          <p className="text-sm text-ink-muted">What is it, and what should a buyer know?</p>
+        </div>
+        <Input
+          label="Title"
           required
-          rows={5}
-          value={values.description}
-          onChange={(e) => set("description", e.target.value)}
-          aria-invalid={fieldError("description") ? true : undefined}
-          aria-describedby={fieldError("description") ? "listing-description-error" : undefined}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus-visible:outline-none"
+          value={values.title}
+          onChange={(e) => set("title", e.target.value)}
+          error={fieldError("title")}
         />
-        {fieldError("description") && (
-          <p id="listing-description-error" role="alert" className="text-xs font-medium text-red-700">
-            {fieldError("description")}
-          </p>
-        )}
-      </div>
-      <Select
-        label="Category"
-        placeholder="Select a category"
-        required
-        options={CATEGORY_OPTIONS}
-        value={values.category}
-        onChange={(e) => set("category", e.target.value as ListingCategory)}
-        error={fieldError("category")}
-      />
-      <Select
-        label="Condition"
-        placeholder="Select a condition"
-        required
-        options={CONDITION_OPTIONS}
-        value={values.condition}
-        onChange={(e) => set("condition", e.target.value as ListingCondition)}
-        error={fieldError("condition")}
-      />
-      <Input
-        label="Price"
-        type="number"
-        min="0.01"
-        step="0.01"
-        required
-        value={values.price}
-        onChange={(e) => set("price", e.target.value)}
-        error={fieldError("price")}
-      />
-      {children}
-      <Button type="submit" isLoading={isSubmitting}>
+        <Input
+          label="Author"
+          required
+          value={values.author}
+          onChange={(e) => set("author", e.target.value)}
+          error={fieldError("author")}
+        />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="listing-description" className="text-sm font-medium text-ink">
+            Description<span aria-hidden="true" className="ml-0.5 text-clay-600">*</span>
+          </label>
+          <textarea
+            id="listing-description"
+            required
+            rows={5}
+            value={values.description}
+            onChange={(e) => set("description", e.target.value)}
+            aria-invalid={fieldError("description") ? true : undefined}
+            aria-describedby={fieldError("description") ? "listing-description-error" : undefined}
+            placeholder="Edition, any wear, why you're passing it on..."
+            className="rounded-lg border border-border-strong px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss-500/40"
+          />
+          {fieldError("description") && (
+            <p id="listing-description-error" role="alert" className="text-xs font-medium text-clay-600">
+              {fieldError("description")}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="font-serif text-lg font-semibold text-ink">Category, condition & price</h2>
+          <p className="text-sm text-ink-muted">Help buyers filter to exactly what they want.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Select
+            label="Category"
+            placeholder="Select a category"
+            required
+            options={CATEGORY_OPTIONS}
+            value={values.category}
+            onChange={(e) => set("category", e.target.value as ListingCategory)}
+            error={fieldError("category")}
+          />
+          <Select
+            label="Condition"
+            placeholder="Select a condition"
+            required
+            options={CONDITION_OPTIONS}
+            value={values.condition}
+            onChange={(e) => set("condition", e.target.value as ListingCondition)}
+            error={fieldError("condition")}
+          />
+        </div>
+        <Input
+          label="Price"
+          type="number"
+          min="0.01"
+          step="0.01"
+          required
+          hint="In USD."
+          value={values.price}
+          onChange={(e) => set("price", e.target.value)}
+          error={fieldError("price")}
+        />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="font-serif text-lg font-semibold text-ink">Photos</h2>
+          <p className="text-sm text-ink-muted">Listings with real photos sell faster.</p>
+        </div>
+        {children}
+      </section>
+
+      <Button type="submit" isLoading={isSubmitting} className="self-start">
         {submitLabel}
       </Button>
     </form>

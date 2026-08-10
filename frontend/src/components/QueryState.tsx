@@ -1,6 +1,8 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
+import type { LucideProps } from "lucide-react";
 
 import { ApiError } from "@/api/errors";
+import { EmptyState } from "@/components/EmptyState";
 
 export function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -17,6 +19,13 @@ export interface QueryStateProps {
   error: unknown;
   isEmpty?: boolean;
   emptyMessage?: string;
+  /** Renders a richer `EmptyState` in place of `emptyMessage`'s plain text —
+   * opt-in per page, since not every empty list needs an icon/CTA treatment. */
+  emptyState?: { icon?: ComponentType<LucideProps>; title: string; description?: string; action?: ReactNode };
+  /** Replaces the default "Loading…" text with a page-appropriate skeleton
+   * (e.g. `ListingGridSkeleton`) — opt-in, so simple call sites keep the
+   * plain status text. */
+  loadingSkeleton?: ReactNode;
   children: ReactNode;
 }
 
@@ -36,11 +45,20 @@ export function QueryState({
   error,
   isEmpty = false,
   emptyMessage = "Nothing to show yet.",
+  emptyState,
+  loadingSkeleton,
   children,
 }: QueryStateProps): React.JSX.Element {
   if (isLoading) {
+    if (loadingSkeleton) {
+      return (
+        <div role="status" aria-label="Loading">
+          {loadingSkeleton}
+        </div>
+      );
+    }
     return (
-      <p role="status" className="py-8 text-center text-sm text-slate-500">
+      <p role="status" className="py-8 text-center text-sm text-ink-muted">
         Loading…
       </p>
     );
@@ -48,14 +66,17 @@ export function QueryState({
 
   if (error) {
     return (
-      <p role="alert" className="py-8 text-center text-sm font-medium text-red-700">
+      <p role="alert" className="py-8 text-center text-sm font-medium text-clay-600">
         {getErrorMessage(error)}
       </p>
     );
   }
 
   if (isEmpty) {
-    return <p className="py-8 text-center text-sm text-slate-500">{emptyMessage}</p>;
+    if (emptyState) {
+      return <EmptyState {...emptyState} />;
+    }
+    return <p className="py-8 text-center text-sm text-ink-muted">{emptyMessage}</p>;
   }
 
   return <>{children}</>;

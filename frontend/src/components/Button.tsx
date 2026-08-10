@@ -1,8 +1,9 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 
-export type ButtonVariant = "primary" | "secondary" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -12,10 +13,13 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "bg-blue-700 text-white hover:bg-blue-800 focus-visible:bg-blue-800",
+  primary:
+    "bg-moss-500 text-white shadow-card hover:bg-moss-600 focus-visible:bg-moss-600 active:bg-moss-700",
   secondary:
-    "bg-white text-slate-900 border border-slate-300 hover:bg-slate-50 focus-visible:bg-slate-50",
-  danger: "bg-red-700 text-white hover:bg-red-800 focus-visible:bg-red-800",
+    "bg-paper text-ink border border-border-strong hover:bg-paper-muted focus-visible:bg-paper-muted",
+  danger:
+    "bg-clay-500 text-white shadow-card hover:bg-clay-600 focus-visible:bg-clay-600 active:bg-clay-700",
+  ghost: "text-ink-muted hover:bg-paper-muted hover:text-ink focus-visible:bg-paper-muted",
 };
 
 /** FE-011 shared component. A11Y-002: all variants keep 4.5:1 contrast
@@ -31,13 +35,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || isLoading}
       aria-busy={isLoading || undefined}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium",
-        "transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium",
+        "transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50",
         VARIANT_CLASSES[variant],
         className,
       )}
       {...rest}
     >
+      {isLoading && <Loader2 aria-hidden="true" className="size-4 animate-spin" />}
       {children}
     </button>
   );

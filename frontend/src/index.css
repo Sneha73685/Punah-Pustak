@@ -1,24 +1,74 @@
 @import "tailwindcss";
 
-/* FE-010: Tailwind is the styling mechanism; this file exists only to pull
-   it in and set the handful of page-level defaults Tailwind's preflight
-   doesn't opinionatedly set for us (focus visibility, base font). No
-   component-specific CSS belongs here — that's what the component library
-   (src/components) and Tailwind utility classes are for. */
+/* FE-010: Tailwind is the styling mechanism. This file pulls it in, defines
+   Punah-Pustak's design tokens as Tailwind v4 `@theme` values (so e.g.
+   `bg-paper`, `text-ink`, `font-serif`, `shadow-card` become real utility
+   classes everywhere), and sets the handful of page-level defaults
+   Tailwind's preflight doesn't opinionatedly set for us (focus visibility,
+   base font, base surface). No component-specific CSS belongs here — that's
+   what the component library (src/components) and Tailwind utilities are
+   for. */
+
+@theme {
+  /* Warm literary palette: cream/paper surfaces, deep ink text, a restrained
+     moss-green primary accent, and a terracotta "clay" accent used sparingly
+     (sold/warm-highlight moments) — deliberately not a generic SaaS
+     blue/purple, per the brand direction. */
+  --color-paper: #fbf7ef;
+  --color-paper-muted: #f2e9d8;
+  --color-paper-strong: #ece0c9;
+  --color-ink: #2a2420;
+  --color-ink-muted: #6b5f52;
+  --color-ink-soft: #948572;
+  --color-border: #e4d9c3;
+  --color-border-strong: #d3c3a4;
+
+  --color-moss-50: #eef3ee;
+  --color-moss-100: #dbe8db;
+  --color-moss-400: #4f7c62;
+  --color-moss-500: #3f6b52;
+  --color-moss-600: #345a44;
+  --color-moss-700: #2a4837;
+
+  --color-clay-50: #f7ebe4;
+  --color-clay-100: #f0d9c9;
+  --color-clay-500: #b5573a;
+  --color-clay-600: #9c4630;
+  --color-clay-700: #7c3625;
+
+  --color-gold-50: #f8f0dd;
+  --color-gold-500: #b8863b;
+  --color-gold-600: #96692a;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: "Source Serif 4", ui-serif, Georgia, "Times New Roman", serif;
+
+  --shadow-card: 0 1px 2px 0 rgba(42, 36, 32, 0.05), 0 1px 3px 0 rgba(42, 36, 32, 0.04);
+  --shadow-card-hover: 0 8px 20px -6px rgba(42, 36, 32, 0.16), 0 2px 6px -2px rgba(42, 36, 32, 0.08);
+  --shadow-panel: 0 2px 8px 0 rgba(42, 36, 32, 0.06);
+}
 
 :root {
   color-scheme: light;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-paper text-ink antialiased;
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
 }
 
 /* A11Y-004/A11Y-006: a visible focus ring is non-negotiable for keyboard
    operability — Tailwind's preflight resets outline styles, so it must be
    explicitly restored rather than left to browser defaults (which some
    browsers suppress on mouse-focus in ways that also suppress keyboard
-   focus). */
+   focus). Uses the brand accent rather than browser-default blue. */
 :focus-visible {
-  @apply outline outline-2 outline-offset-2 outline-blue-600;
+  @apply outline outline-2 outline-offset-2;
+  outline-color: var(--color-moss-500);
 }

@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, type Location } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthContext";
+import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { toFormErrors } from "@/lib/formErrors";
 
@@ -57,44 +57,43 @@ export function LoginPage(): React.JSX.Element {
   }
 
   return (
-    <div className="mx-auto max-w-sm">
-      <Card>
-        <h1 className="text-xl font-semibold text-slate-900">Log in</h1>
-        <form className="mt-4 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
-          <Input
-            label="Email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={fieldErrors.email}
-          />
-          <Input
-            label="Password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={fieldErrors.password}
-          />
-          {formError && (
-            <p role="alert" className="text-sm font-medium text-red-700">
-              {formError}
-            </p>
-          )}
-          <Button type="submit" isLoading={isSubmitting}>
-            Log in
-          </Button>
-        </form>
-        <p className="mt-4 text-sm text-slate-600">
-          Don&apos;t have an account?{" "}
-          <Link to="/register" className="font-medium text-blue-700 hover:underline">
-            Register
-          </Link>
-        </p>
-      </Card>
-    </div>
+    <AuthShell>
+      <h1 className="font-serif text-2xl font-semibold text-ink">Welcome back</h1>
+      <p className="mt-1 text-sm text-ink-muted">Log in to manage your listings.</p>
+      <form className="mt-6 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
+        <Input
+          label="Email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={fieldErrors.email}
+        />
+        <Input
+          label="Password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={fieldErrors.password}
+        />
+        {formError && (
+          <p role="alert" className="text-sm font-medium text-clay-600">
+            {formError}
+          </p>
+        )}
+        <Button type="submit" isLoading={isSubmitting} className="mt-2">
+          Log in
+        </Button>
+      </form>
+      <p className="mt-6 text-sm text-ink-muted">
+        Don&apos;t have an account?{" "}
+        <Link to="/register" className="font-medium text-moss-600 hover:underline">
+          Register
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

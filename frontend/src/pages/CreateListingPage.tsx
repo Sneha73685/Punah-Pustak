@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/Card";
 import { EMPTY_LISTING_FORM_VALUES, ListingForm } from "@/components/ListingForm";
 import { ImageUploadField } from "@/components/ImageUploadField";
+import { PageHeader } from "@/components/PageHeader";
 import { useCreateListing, useUploadListingImages } from "@/hooks/useListings";
 import { toFormErrors } from "@/lib/formErrors";
 import type { ListingCategory, ListingCondition } from "@/api/types";
@@ -56,36 +57,37 @@ export function CreateListingPage(): React.JSX.Element {
   }
 
   return (
-    <div className="mx-auto max-w-lg">
-      <Card>
-        <h1 className="text-xl font-semibold text-slate-900">Create listing</h1>
-        <div className="mt-4">
-          <ListingForm
-            initialValues={EMPTY_LISTING_FORM_VALUES}
-            onSubmit={handleSubmit}
-            submitLabel="Create listing"
-            isSubmitting={createMutation.isPending || uploadMutation.isPending}
-            serverFieldErrors={serverFieldErrors}
-          >
-            <ImageUploadField
-              existingCount={0}
-              files={images}
-              onFilesChange={setImages}
-              error={serverFieldErrors.images}
-            />
-            {createdListingId && (
-              <p className="text-sm text-slate-500">
-                Your listing was saved. Fix the image issue below and submit again to finish adding
-                photos, or come back to it later from My Listings.
-              </p>
-            )}
-            {formError && (
-              <p role="alert" className="text-sm font-medium text-red-700">
-                {formError}
-              </p>
-            )}
-          </ListingForm>
-        </div>
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      <PageHeader
+        title="List a book"
+        description="A few details now, and it's live on Punah-Pustak for other readers to find."
+      />
+      <Card padding="lg">
+        <ListingForm
+          initialValues={EMPTY_LISTING_FORM_VALUES}
+          onSubmit={handleSubmit}
+          submitLabel="Create listing"
+          isSubmitting={createMutation.isPending || uploadMutation.isPending}
+          serverFieldErrors={serverFieldErrors}
+        >
+          <ImageUploadField
+            existingCount={0}
+            files={images}
+            onFilesChange={setImages}
+            error={serverFieldErrors.images}
+          />
+          {createdListingId && (
+            <p className="text-sm text-ink-muted">
+              Your listing was saved. Fix the image issue below and submit again to finish adding
+              photos, or come back to it later from My Listings.
+            </p>
+          )}
+          {formError && (
+            <p role="alert" className="text-sm font-medium text-clay-600">
+              {formError}
+            </p>
+          )}
+        </ListingForm>
       </Card>
     </div>
   );

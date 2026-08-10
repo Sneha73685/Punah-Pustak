@@ -77,7 +77,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps): React.J
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
@@ -86,10 +86,10 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps): React.J
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+        className="w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-card-hover focus:outline-none"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+        <h2 id={titleId} className="font-serif text-lg font-semibold text-ink">
           {title}
         </h2>
         <div className="mt-4">{children}</div>

@@ -26,11 +26,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const hintId = `${inputId}-hint`;
 
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={inputId} className="text-sm font-medium text-slate-800">
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={inputId} className="text-sm font-medium text-ink">
         {label}
         {required && (
-          <span aria-hidden="true" className="ml-0.5 text-red-700">
+          <span aria-hidden="true" className="ml-0.5 text-clay-600">
             *
           </span>
         )}
@@ -42,20 +42,21 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         aria-invalid={error ? true : undefined}
         aria-describedby={cn(error && errorId, hint && hintId) || undefined}
         className={cn(
-          "rounded-md border px-3 py-2 text-sm text-slate-900",
-          "focus-visible:outline-none",
-          error ? "border-red-600" : "border-slate-300",
+          "rounded-lg border bg-white px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft",
+          "transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss-500/40",
+          "disabled:cursor-not-allowed disabled:bg-paper-muted disabled:text-ink-muted",
+          error ? "border-clay-500" : "border-border-strong",
           className,
         )}
         {...rest}
       />
       {hint && !error && (
-        <p id={hintId} className="text-xs text-slate-500">
+        <p id={hintId} className="text-xs text-ink-muted">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errorId} role="alert" className="text-xs font-medium text-red-700">
+        <p id={errorId} role="alert" className="text-xs font-medium text-clay-600">
           {error}
         </p>
       )}

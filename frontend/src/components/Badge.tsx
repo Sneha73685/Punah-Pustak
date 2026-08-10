@@ -9,10 +9,10 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
-  neutral: "bg-slate-100 text-slate-700",
-  success: "bg-green-100 text-green-800",
-  warning: "bg-amber-100 text-amber-800",
-  danger: "bg-red-100 text-red-800",
+  neutral: "bg-paper-muted text-ink-muted",
+  success: "bg-moss-50 text-moss-700",
+  warning: "bg-gold-50 text-gold-600",
+  danger: "bg-clay-50 text-clay-600",
 };
 
 /**

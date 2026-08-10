@@ -29,6 +29,8 @@ export function ProfilePage(): React.JSX.Element | null {
     return null;
   }
 
+  const initial = state.user.display_name.trim().charAt(0).toUpperCase() || "?";
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setFieldErrors({});
@@ -46,11 +48,21 @@ export function ProfilePage(): React.JSX.Element | null {
   }
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Profile</h1>
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      <div className="flex items-center gap-4">
+        <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-moss-500 font-serif text-2xl font-semibold text-white">
+          {initial}
+        </span>
+        <div>
+          <h1 className="font-serif text-2xl font-semibold text-ink sm:text-3xl">
+            {state.user.display_name}
+          </h1>
+          <p className="text-sm text-ink-muted">{state.user.email}</p>
+        </div>
+      </div>
 
       <Card>
-        <h2 className="text-lg font-semibold text-slate-900">Account details</h2>
+        <h2 className="font-serif text-lg font-semibold text-ink">Account details</h2>
         <form className="mt-4 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
           <Input label="Email" value={state.user.email} disabled hint="Email cannot be changed." />
           <Input
@@ -61,36 +73,36 @@ export function ProfilePage(): React.JSX.Element | null {
             error={fieldErrors.display_name}
           />
           {formError && (
-            <p role="alert" className="text-sm font-medium text-red-700">
+            <p role="alert" className="text-sm font-medium text-clay-600">
               {formError}
             </p>
           )}
-          {saved && <p className="text-sm font-medium text-green-700">Saved.</p>}
-          <Button type="submit" isLoading={updateMutation.isPending}>
+          {saved && <p className="text-sm font-medium text-moss-600">Saved.</p>}
+          <Button type="submit" isLoading={updateMutation.isPending} className="self-start">
             Save changes
           </Button>
         </form>
       </Card>
 
       <Card>
-        <h2 className="text-lg font-semibold text-slate-900">Your listings</h2>
+        <h2 className="font-serif text-lg font-semibold text-ink">Your listings</h2>
         <div className="mt-4">
           <QueryState isLoading={summaryQuery.isPending} error={summaryQuery.error}>
             {summaryQuery.data && (
               <dl className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <dt className="text-sm text-slate-500">Available</dt>
-                  <dd className="text-xl font-semibold text-slate-900">
+                  <dt className="text-sm text-ink-muted">Available</dt>
+                  <dd className="font-serif text-xl font-semibold text-ink">
                     {summaryQuery.data.available}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-slate-500">Sold</dt>
-                  <dd className="text-xl font-semibold text-slate-900">{summaryQuery.data.sold}</dd>
+                  <dt className="text-sm text-ink-muted">Sold</dt>
+                  <dd className="font-serif text-xl font-semibold text-ink">{summaryQuery.data.sold}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-slate-500">Deleted</dt>
-                  <dd className="text-xl font-semibold text-slate-900">
+                  <dt className="text-sm text-ink-muted">Deleted</dt>
+                  <dd className="font-serif text-xl font-semibold text-ink">
                     {summaryQuery.data.deleted}
                   </dd>
                 </div>
@@ -101,10 +113,10 @@ export function ProfilePage(): React.JSX.Element | null {
       </Card>
 
       <Card>
-        <h2 className="text-lg font-semibold text-slate-900">Change password</h2>
+        <h2 className="font-serif text-lg font-semibold text-ink">Change password</h2>
         <div className="mt-4">
           {passwordChanged ? (
-            <p className="text-sm font-medium text-green-700">Password changed.</p>
+            <p className="text-sm font-medium text-moss-600">Password changed.</p>
           ) : (
             <PasswordChangeForm onSuccess={() => setPasswordChanged(true)} />
           )}

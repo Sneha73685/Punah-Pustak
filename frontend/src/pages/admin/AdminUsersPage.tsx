@@ -5,6 +5,7 @@ import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Modal } from "@/components/Modal";
+import { PageHeader } from "@/components/PageHeader";
 import { Pagination } from "@/components/Pagination";
 import { getErrorMessage, QueryState } from "@/components/QueryState";
 import {
@@ -81,77 +82,81 @@ export function AdminUsersPage(): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Users</h1>
+      <PageHeader title="Users" description="Manage accounts, suspensions, and password resets." />
       <AdminNav />
 
       {/* Reinstate has no confirmation modal to attach its own error to
           (it isn't a destructive action, FE-040), so this banner is the one
           place all three actions' errors can surface. */}
       {actionError && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-clay-600">
           {actionError}
         </p>
       )}
 
       <QueryState isLoading={query.isPending} error={query.error}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">Display name</th>
-                <th className="py-2 pr-4">Created</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {query.data?.items.map((user) => (
-                <tr key={user.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-4">{user.email}</td>
-                  <td className="py-2 pr-4">{user.display_name}</td>
-                  <td className="py-2 pr-4">{new Date(user.created_at).toLocaleDateString()}</td>
-                  <td className="py-2 pr-4">
-                    <Badge tone={user.is_active ? "success" : "danger"}>
-                      {user.is_active ? "Active" : "Suspended"}
-                    </Badge>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <div className="flex flex-wrap gap-2">
-                      {user.is_active ? (
-                        <Button
-                          variant="danger"
-                          onClick={() => {
-                            setActionError(null);
-                            setSuspendTarget(user);
-                          }}
-                        >
-                          Suspend
-                        </Button>
-                      ) : (
+        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border bg-paper-muted text-ink-muted">
+                  <th className="px-4 py-3 font-medium">Email</th>
+                  <th className="px-4 py-3 font-medium">Display name</th>
+                  <th className="px-4 py-3 font-medium">Created</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {query.data?.items.map((user) => (
+                  <tr key={user.id} className="border-b border-border last:border-0 hover:bg-paper-muted/60">
+                    <td className="px-4 py-3 text-ink">{user.email}</td>
+                    <td className="px-4 py-3 text-ink">{user.display_name}</td>
+                    <td className="px-4 py-3 text-ink-muted">
+                      {new Date(user.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={user.is_active ? "success" : "danger"}>
+                        {user.is_active ? "Active" : "Suspended"}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {user.is_active ? (
+                          <Button
+                            variant="danger"
+                            onClick={() => {
+                              setActionError(null);
+                              setSuspendTarget(user);
+                            }}
+                          >
+                            Suspend
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            isLoading={reinstateMutation.isPending}
+                            onClick={() => void handleReinstate(user)}
+                          >
+                            Reinstate
+                          </Button>
+                        )}
                         <Button
                           variant="secondary"
-                          isLoading={reinstateMutation.isPending}
-                          onClick={() => void handleReinstate(user)}
+                          onClick={() => {
+                            setActionError(null);
+                            setResetTarget(user);
+                          }}
                         >
-                          Reinstate
+                          Reset password
                         </Button>
-                      )}
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          setActionError(null);
-                          setResetTarget(user);
-                        }}
-                      >
-                        Reset password
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         {query.data && (
           <Pagination page={page} pageSize={PAGE_SIZE} total={query.data.total} onPageChange={setPage} />
@@ -163,7 +168,7 @@ export function AdminUsersPage(): React.JSX.Element {
         onClose={() => setSuspendTarget(null)}
         title={`Suspend ${suspendTarget?.email ?? ""}?`}
       >
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-muted">
           They will be immediately unable to log in. This requires a reason code for the audit log
           (FR-042).
         </p>
@@ -176,7 +181,7 @@ export function AdminUsersPage(): React.JSX.Element {
           />
         </div>
         {actionError && (
-          <p role="alert" className="mt-2 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-2 text-sm font-medium text-clay-600">
             {actionError}
           </p>
         )}
@@ -202,11 +207,11 @@ export function AdminUsersPage(): React.JSX.Element {
       >
         {temporaryPassword ? (
           <div>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-ink-muted">
               Relay this temporary password to the user out-of-band. It will not be shown again
               (FR-045).
             </p>
-            <p className="mt-2 rounded-md bg-slate-100 p-2 font-mono text-sm text-slate-900">
+            <p className="mt-2 rounded-lg bg-paper-muted p-2 font-mono text-sm text-ink">
               {temporaryPassword}
             </p>
             <div className="mt-4 flex justify-end">
@@ -215,12 +220,12 @@ export function AdminUsersPage(): React.JSX.Element {
           </div>
         ) : (
           <div>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-ink-muted">
               This generates a new temporary password and requires the user to change it on next
               login.
             </p>
             {actionError && (
-              <p role="alert" className="mt-2 text-sm font-medium text-red-700">
+              <p role="alert" className="mt-2 text-sm font-medium text-clay-600">
                 {actionError}
               </p>
             )}

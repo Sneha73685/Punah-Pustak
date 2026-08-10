@@ -6,6 +6,7 @@ import { BrowsePage } from "@/pages/BrowsePage";
 import { ChangePasswordPage } from "@/pages/ChangePasswordPage";
 import { CreateListingPage } from "@/pages/CreateListingPage";
 import { EditListingPage } from "@/pages/EditListingPage";
+import { HomePage } from "@/pages/HomePage";
 import { ListingDetailPage } from "@/pages/ListingDetailPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { MyListingsPage } from "@/pages/MyListingsPage";
@@ -26,7 +27,7 @@ function App(): React.JSX.Element {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<Navigate to="/listings" replace />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/listings" element={<BrowsePage />} />
@@ -86,7 +87,7 @@ function App(): React.JSX.Element {
           }
         />
 
-        <Route path="*" element={<Navigate to="/listings" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );

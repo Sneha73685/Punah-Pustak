@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { CheckCircle2 } from "lucide-react";
 
 import { useAuth } from "@/auth/AuthContext";
+import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
@@ -53,11 +55,12 @@ export function RegisterPage(): React.JSX.Element {
   if (isRegistered) {
     return (
       <div className="mx-auto max-w-sm">
-        <Card>
-          <h1 className="text-xl font-semibold text-slate-900">Account created</h1>
-          <p className="mt-2 text-sm text-slate-600">
+        <Card padding="lg" className="flex flex-col items-center gap-3 text-center">
+          <CheckCircle2 aria-hidden="true" className="size-10 text-moss-500" />
+          <h1 className="font-serif text-xl font-semibold text-ink">Account created</h1>
+          <p className="text-sm text-ink-muted">
             You can now{" "}
-            <Link to="/login" className="font-medium text-blue-700 hover:underline">
+            <Link to="/login" className="font-medium text-moss-600 hover:underline">
               log in
             </Link>
             .
@@ -68,53 +71,52 @@ export function RegisterPage(): React.JSX.Element {
   }
 
   return (
-    <div className="mx-auto max-w-sm">
-      <Card>
-        <h1 className="text-xl font-semibold text-slate-900">Register</h1>
-        <form className="mt-4 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
-          <Input
-            label="Display name"
-            autoComplete="name"
-            required
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            error={fieldErrors.display_name}
-          />
-          <Input
-            label="Email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={fieldErrors.email}
-          />
-          <Input
-            label="Password"
-            type="password"
-            autoComplete="new-password"
-            required
-            hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={fieldErrors.password}
-          />
-          {formError && (
-            <p role="alert" className="text-sm font-medium text-red-700">
-              {formError}
-            </p>
-          )}
-          <Button type="submit" isLoading={isSubmitting}>
-            Register
-          </Button>
-        </form>
-        <p className="mt-4 text-sm text-slate-600">
-          Already have an account?{" "}
-          <Link to="/login" className="font-medium text-blue-700 hover:underline">
-            Log in
-          </Link>
-        </p>
-      </Card>
-    </div>
+    <AuthShell>
+      <h1 className="font-serif text-2xl font-semibold text-ink">Create your account</h1>
+      <p className="mt-1 text-sm text-ink-muted">Join Punah-Pustak to buy and sell books.</p>
+      <form className="mt-6 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
+        <Input
+          label="Display name"
+          autoComplete="name"
+          required
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          error={fieldErrors.display_name}
+        />
+        <Input
+          label="Email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={fieldErrors.email}
+        />
+        <Input
+          label="Password"
+          type="password"
+          autoComplete="new-password"
+          required
+          hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={fieldErrors.password}
+        />
+        {formError && (
+          <p role="alert" className="text-sm font-medium text-clay-600">
+            {formError}
+          </p>
+        )}
+        <Button type="submit" isLoading={isSubmitting} className="mt-2">
+          Register
+        </Button>
+      </form>
+      <p className="mt-6 text-sm text-ink-muted">
+        Already have an account?{" "}
+        <Link to="/login" className="font-medium text-moss-600 hover:underline">
+          Log in
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

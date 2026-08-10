@@ -5,6 +5,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { Card } from "@/components/Card";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { ListingForm } from "@/components/ListingForm";
+import { PageHeader } from "@/components/PageHeader";
 import { QueryState } from "@/components/QueryState";
 import { useListing, useUpdateListing, useUploadListingImages } from "@/hooks/useListings";
 import { toFormErrors } from "@/lib/formErrors";
@@ -63,19 +64,19 @@ export function EditListingPage(): React.JSX.Element {
   return (
     <QueryState isLoading={query.isPending} error={query.error}>
       {listing && !isOwner && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-clay-600">
           You don&apos;t have permission to edit this listing.
         </p>
       )}
       {listing && isOwner && listing.status !== "available" && (
         <div className="mx-auto max-w-lg">
           <Card>
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-ink">
               This listing is {listing.status} and can no longer be edited.
             </p>
             <Link
               to={`/listings/${listing.id}`}
-              className="mt-2 inline-block font-medium text-blue-700 hover:underline"
+              className="mt-2 inline-block font-medium text-moss-600 hover:underline"
             >
               Back to listing
             </Link>
@@ -83,37 +84,35 @@ export function EditListingPage(): React.JSX.Element {
         </div>
       )}
       {listing && isOwner && listing.status === "available" && (
-        <div className="mx-auto max-w-lg">
-          <Card>
-            <h1 className="text-xl font-semibold text-slate-900">Edit listing</h1>
-            <div className="mt-4">
-              <ListingForm
-                initialValues={{
-                  title: listing.title,
-                  author: listing.author,
-                  description: listing.description,
-                  category: listing.category,
-                  condition: listing.condition,
-                  price: String(listing.price),
-                }}
-                onSubmit={handleSubmit}
-                submitLabel="Save changes"
-                isSubmitting={updateMutation.isPending || uploadMutation.isPending}
-                serverFieldErrors={serverFieldErrors}
-              >
-                <ImageUploadField
-                  existingCount={listing.images.length}
-                  files={images}
-                  onFilesChange={setImages}
-                  error={serverFieldErrors.images}
-                />
-                {formError && (
-                  <p role="alert" className="text-sm font-medium text-red-700">
-                    {formError}
-                  </p>
-                )}
-              </ListingForm>
-            </div>
+        <div className="mx-auto flex max-w-2xl flex-col gap-6">
+          <PageHeader title="Edit listing" description="Keep your listing accurate and up to date." />
+          <Card padding="lg">
+            <ListingForm
+              initialValues={{
+                title: listing.title,
+                author: listing.author,
+                description: listing.description,
+                category: listing.category,
+                condition: listing.condition,
+                price: String(listing.price),
+              }}
+              onSubmit={handleSubmit}
+              submitLabel="Save changes"
+              isSubmitting={updateMutation.isPending || uploadMutation.isPending}
+              serverFieldErrors={serverFieldErrors}
+            >
+              <ImageUploadField
+                existingCount={listing.images.length}
+                files={images}
+                onFilesChange={setImages}
+                error={serverFieldErrors.images}
+              />
+              {formError && (
+                <p role="alert" className="text-sm font-medium text-clay-600">
+                  {formError}
+                </p>
+              )}
+            </ListingForm>
           </Card>
         </div>
       )}

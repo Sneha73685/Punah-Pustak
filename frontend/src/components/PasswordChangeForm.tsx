@@ -83,7 +83,7 @@ export function PasswordChangeForm({
         error={fieldErrors.new_password}
       />
       {formError && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-clay-600">
           {formError}
         </p>
       )}

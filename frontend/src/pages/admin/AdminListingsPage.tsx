@@ -6,6 +6,7 @@ import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Modal } from "@/components/Modal";
+import { PageHeader } from "@/components/PageHeader";
 import { Pagination } from "@/components/Pagination";
 import { getErrorMessage, QueryState } from "@/components/QueryState";
 import { Select } from "@/components/Select";
@@ -47,7 +48,7 @@ export function AdminListingsPage(): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Listings</h1>
+      <PageHeader title="Listings" description="Review and remove listings across every seller." />
       <AdminNav />
 
       <div className="max-w-xs">
@@ -64,47 +65,49 @@ export function AdminListingsPage(): React.JSX.Element {
       </div>
 
       <QueryState isLoading={query.isPending} error={query.error}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2 pr-4">Title</th>
-                <th className="py-2 pr-4">Seller</th>
-                <th className="py-2 pr-4">Price</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {query.data?.items.map((listing) => (
-                <tr key={listing.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-4">
-                    <Link to={`/listings/${listing.id}`} className="font-medium text-blue-700 hover:underline">
-                      {listing.title}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-4">{listing.seller_display_name}</td>
-                  <td className="py-2 pr-4">{formatPrice(listing.price)}</td>
-                  <td className="py-2 pr-4">
-                    <Badge tone={STATUS_TONES[listing.status]}>{STATUS_LABELS[listing.status]}</Badge>
-                  </td>
-                  <td className="py-2 pr-4">
-                    {listing.status !== "deleted" && (
-                      <Button
-                        variant="danger"
-                        onClick={() => {
-                          setActionError(null);
-                          setRemoveTarget(listing);
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </td>
+        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border bg-paper-muted text-ink-muted">
+                  <th className="px-4 py-3 font-medium">Title</th>
+                  <th className="px-4 py-3 font-medium">Seller</th>
+                  <th className="px-4 py-3 font-medium">Price</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {query.data?.items.map((listing) => (
+                  <tr key={listing.id} className="border-b border-border last:border-0 hover:bg-paper-muted/60">
+                    <td className="px-4 py-3">
+                      <Link to={`/listings/${listing.id}`} className="font-medium text-moss-600 hover:underline">
+                        {listing.title}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-ink">{listing.seller_display_name}</td>
+                    <td className="px-4 py-3 text-ink">{formatPrice(listing.price)}</td>
+                    <td className="px-4 py-3">
+                      <Badge tone={STATUS_TONES[listing.status]}>{STATUS_LABELS[listing.status]}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {listing.status !== "deleted" && (
+                        <Button
+                          variant="danger"
+                          onClick={() => {
+                            setActionError(null);
+                            setRemoveTarget(listing);
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         {query.data && (
           <Pagination page={page} pageSize={PAGE_SIZE} total={query.data.total} onPageChange={setPage} />
@@ -116,7 +119,7 @@ export function AdminListingsPage(): React.JSX.Element {
         onClose={() => setRemoveTarget(null)}
         title={`Remove "${removeTarget?.title ?? ""}"?`}
       >
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-muted">
           It will no longer appear in public browse or search. This requires a reason code for the
           audit log (FR-042).
         </p>
@@ -129,7 +132,7 @@ export function AdminListingsPage(): React.JSX.Element {
           />
         </div>
         {actionError && (
-          <p role="alert" className="mt-2 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-2 text-sm font-medium text-clay-600">
             {actionError}
           </p>
         )}
