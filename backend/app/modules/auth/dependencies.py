@@ -171,6 +171,51 @@ def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> U
     return current_user
 
 
+def _extract_client_ip(request: Request, settings: Settings) -> str:
+    """Resolves the IP address SEC-040's rate limiter keys on.
+
+    Trust model (recorded here, the one place this decision is made): this
+    project is deployed on Render, reachable only through Render's own
+    edge/load-balancer layer — and, per Render's documented platform
+    architecture, Cloudflare in front of that — never by a direct
+    connection to the running container. Those fronting hops are therefore
+    trusted *by construction of the platform*, not because we trust
+    arbitrary header content: a client cannot bypass them to open a raw
+    TCP connection to this service. But neither hop strips or resets an
+    `X-Forwarded-For` value a client sends of their own accord — each hop
+    only *appends* the address it received its own connection from — so
+    blindly trusting the header (e.g. always taking its first, left-most
+    entry, which is what `X-Forwarded-For` would report if the client set
+    it themselves and nothing trustworthy overwrote it) would let any
+    client forge their own rate-limit bucket by pre-populating the header.
+
+    This function only reads `X-Forwarded-For` at all when
+    `settings.trusted_proxy_hop_count > 0` — 0 in every local/dev/test
+    environment (docker-compose, pytest, CI: nothing sits in front of
+    uvicorn there, so `request.client.host` is already the real peer).
+    When it is set (2, in production, for Render's edge + Cloudflare),
+    this takes exactly the entry `trusted_proxy_hop_count` positions from
+    the right — the "N trusted hops" algorithm also used by, e.g.,
+    Express's `trust proxy: <number>`: each trusted hop appends the peer
+    *it* observed, so with N trusted hops in front of this app the real
+    client sits N positions from the right end of the list, and anything
+    further left may be attacker-supplied.
+
+    If the header doesn't carry enough entries for the configured hop
+    count (a hop that failed to append, or a short/malformed header),
+    this falls back to `request.client.host` rather than guessing — it
+    fails toward "definitely not attacker-controlled", not toward "best
+    guess at the real client".
+    """
+    if settings.trusted_proxy_hop_count > 0:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            hops = [hop.strip() for hop in forwarded_for.split(",") if hop.strip()]
+            if len(hops) >= settings.trusted_proxy_hop_count:
+                return hops[-settings.trusted_proxy_hop_count]
+    return request.client.host if request.client else "unknown"
+
+
 def enforce_auth_rate_limit(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -182,8 +227,10 @@ def enforce_auth_rate_limit(
     in `app.modules.auth.dependencies` and not in the framework-agnostic
     `app.core.rate_limit`. `request.url.path` is the bucket, so each of the
     three rate-limited endpoints gets its own independent counter per IP.
+    See `_extract_client_ip` for how "per IP" is resolved behind Render's
+    reverse proxy without trusting arbitrary client-supplied headers.
     """
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _extract_client_ip(request, settings)
     auth_rate_limiter.check(
         bucket=request.url.path, key=client_ip, limit=settings.auth_rate_limit_per_minute
     )

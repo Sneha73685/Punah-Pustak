@@ -12,11 +12,14 @@ from fastapi import Response as FastAPIResponse
 from fastapi.testclient import TestClient
 from httpx import Response
 from sqlalchemy.orm import Session
+from starlette.requests import Request
 
 from app.core.config import Settings, get_settings
+from app.main import app
+from app.modules.auth.dependencies import _extract_client_ip
 from app.modules.auth.router import _set_refresh_cookie
 from app.modules.users.models import User
-from tests.conftest import register_and_login
+from tests.conftest import _test_settings, register_and_login
 
 _REGISTER = "/api/v1/auth/register"
 _LOGIN = "/api/v1/auth/login"
@@ -246,6 +249,104 @@ class TestLogout:
         assert first.status_code == second.status_code == 204
 
 
+def _make_request(*, client_host: str | None, forwarded_for: str | None = None) -> Request:
+    """A minimal real `Request` (not a mock) with just enough ASGI scope
+    for `_extract_client_ip` to read `request.client`/`request.headers` —
+    the two things it actually touches.
+    """
+    headers = [(b"x-forwarded-for", forwarded_for.encode())] if forwarded_for is not None else []
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/api/v1/auth/login",
+        "query_string": b"",
+        "headers": headers,
+        "client": (client_host, 12345) if client_host is not None else None,
+        "server": ("testserver", 80),
+        "scheme": "http",
+    }
+    return Request(scope)
+
+
+class TestExtractClientIp:
+    """Unit tests for the SEC-040 trust model, isolated from the rate
+    limiter itself: `app.modules.auth.dependencies._extract_client_ip`.
+    """
+
+    def test_hop_count_zero_ignores_x_forwarded_for_entirely(self) -> None:
+        """The default (and every local/dev/test) configuration: no proxy
+        is trusted, so the header is never even consulted — a client
+        sending a forged `X-Forwarded-For` cannot influence the resolved
+        IP at all.
+        """
+        settings = get_settings().model_copy(update={"trusted_proxy_hop_count": 0})
+        request = _make_request(client_host="203.0.113.9", forwarded_for="9.9.9.9")
+
+        assert _extract_client_ip(request, settings) == "203.0.113.9"
+
+    def test_hop_count_zero_with_no_client_falls_back_to_unknown(self) -> None:
+        settings = get_settings().model_copy(update={"trusted_proxy_hop_count": 0})
+        request = _make_request(client_host=None)
+
+        assert _extract_client_ip(request, settings) == "unknown"
+
+    def test_single_trusted_hop_takes_the_right_most_entry(self) -> None:
+        """N=1: the real client is exactly one position from the right —
+        the entry the single trusted hop appended based on the TCP
+        connection it actually observed.
+        """
+        settings = get_settings().model_copy(update={"trusted_proxy_hop_count": 1})
+        request = _make_request(client_host="10.0.0.5", forwarded_for="203.0.113.9")
+
+        assert _extract_client_ip(request, settings) == "203.0.113.9"
+
+    def test_two_trusted_hops_skips_the_nearer_hops_own_address(self) -> None:
+        """N=2 (this project's production configuration: Render's edge +
+        Cloudflare). The header holds [real_client, cloudflare_edge] by
+        the time it reaches this app (Render's own load-balancer IP is
+        never itself an X-Forwarded-For entry — it's only visible as the
+        raw TCP peer, which this function doesn't need here). Taking the
+        right-most entry would incorrectly resolve to Cloudflare's shared
+        edge IP, not the real client — this proves the fix takes the
+        second-from-right entry instead.
+        """
+        settings = get_settings().model_copy(update={"trusted_proxy_hop_count": 2})
+        request = _make_request(client_host="10.0.0.5", forwarded_for="203.0.113.9, 198.51.100.1")
+
+        assert _extract_client_ip(request, settings) == "203.0.113.9"
+
+    def test_a_client_supplied_prefix_cannot_forge_the_resolved_ip(self) -> None:
+        """The core spoofing threat this trust model defends against:
+        proxies only ever *append* to `X-Forwarded-For`, never clear a
+        client-supplied prefix, so a malicious client can freely prepend
+        fake entries before any trusted hop touches the header. Anchoring
+        on a fixed hop count from the *right* — never the left — must
+        make this prefix irrelevant to the resolved IP.
+        """
+        settings = get_settings().model_copy(update={"trusted_proxy_hop_count": 2})
+        spoofed = "attacker-controlled-fake-ip, 203.0.113.9, 198.51.100.1"
+        request = _make_request(client_host="10.0.0.5", forwarded_for=spoofed)
+
+        assert _extract_client_ip(request, settings) == "203.0.113.9"
+
+    def test_fewer_entries_than_configured_hop_count_falls_back_to_raw_peer(self) -> None:
+        """A header shorter than the configured trust depth (a hop that
+        failed to append, or a malformed value) is not trustworthy enough
+        to index into — falling back to the raw TCP peer fails toward
+        "definitely not attacker-controlled" rather than guessing.
+        """
+        settings = get_settings().model_copy(update={"trusted_proxy_hop_count": 2})
+        request = _make_request(client_host="10.0.0.5", forwarded_for="203.0.113.9")
+
+        assert _extract_client_ip(request, settings) == "10.0.0.5"
+
+    def test_missing_header_falls_back_to_raw_peer_even_when_hops_are_trusted(self) -> None:
+        settings = get_settings().model_copy(update={"trusted_proxy_hop_count": 2})
+        request = _make_request(client_host="10.0.0.5", forwarded_for=None)
+
+        assert _extract_client_ip(request, settings) == "10.0.0.5"
+
+
 class TestRateLimiting:
     """SEC-040 / the Milestone 1 exit criterion: "rate limiting on
     login/register/refresh is in place."
@@ -281,6 +382,64 @@ class TestRateLimiting:
 
         assert response.status_code == 429
         assert response.json()["error"]["code"] == "RATE_LIMITED"
+
+    def test_rate_limit_buckets_by_the_trusted_hop_extracted_ip(
+        self, api_client: TestClient
+    ) -> None:
+        """End-to-end proof (beyond `TestExtractClientIp`'s unit tests)
+        that `enforce_auth_rate_limit` actually calls `_extract_client_ip`
+        and keys the limiter on its result: two requests that share the
+        same raw TestClient peer, but carry different real-client
+        `X-Forwarded-For` values (as a trusted hop would set them), land
+        in independent rate-limit buckets.
+        """
+        trusted_settings = get_settings().model_copy(
+            update={"cookie_secure": False, "trusted_proxy_hop_count": 1}
+        )
+        app.dependency_overrides[get_settings] = lambda: trusted_settings
+        try:
+            limit = trusted_settings.auth_rate_limit_per_minute
+
+            for i in range(limit):
+                response = api_client.post(
+                    _REGISTER,
+                    json={
+                        "email": f"rl-trusted-a-{i}@example.com",
+                        "password": _PASSWORD,
+                        "display_name": "Reader",
+                    },
+                    headers={"X-Forwarded-For": "203.0.113.9"},
+                )
+                assert response.status_code == 201, response.text
+
+            # Client A (X-Forwarded-For: 203.0.113.9) is now over the limit...
+            over_limit = api_client.post(
+                _REGISTER,
+                json={
+                    "email": "rl-trusted-a-over@example.com",
+                    "password": _PASSWORD,
+                    "display_name": "Reader",
+                },
+                headers={"X-Forwarded-For": "203.0.113.9"},
+            )
+            assert over_limit.status_code == 429
+
+            # ...but a distinct real client (a different X-Forwarded-For,
+            # as the trusted hop would set for a different requester) is
+            # unaffected -- proving the limiter didn't key on the shared
+            # TestClient-level TCP peer both requests actually share.
+            other_client = api_client.post(
+                _REGISTER,
+                json={
+                    "email": "rl-trusted-b@example.com",
+                    "password": _PASSWORD,
+                    "display_name": "Reader",
+                },
+                headers={"X-Forwarded-For": "198.51.100.1"},
+            )
+            assert other_client.status_code == 201, other_client.text
+        finally:
+            app.dependency_overrides[get_settings] = _test_settings
 
 
 class TestRefreshCookieAttributes:

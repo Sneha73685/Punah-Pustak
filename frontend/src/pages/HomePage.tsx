@@ -3,10 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { BookOpen, Handshake, Leaf, PlusCircle, Recycle, Search, Wallet } from "lucide-react";
 
 import { Button } from "@/components/Button";
-import { EmptyState } from "@/components/EmptyState";
 import { Input } from "@/components/Input";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingGridSkeleton } from "@/components/Skeleton";
+import { QueryState } from "@/components/QueryState";
 import { useBrowseListings } from "@/hooks/useListings";
 
 const HOW_IT_WORKS = [
@@ -97,15 +97,13 @@ export function HomePage(): React.JSX.Element {
             </Button>
           </form>
           <div className="flex flex-wrap gap-3">
-            <Link to="/listings">
-              <Button variant="primary">Browse Books</Button>
-            </Link>
-            <Link to="/listings/new">
-              <Button variant="secondary">
-                <PlusCircle aria-hidden="true" className="size-4" />
-                Sell a Book
-              </Button>
-            </Link>
+            <Button variant="primary" onClick={() => navigate("/listings")}>
+              Browse Books
+            </Button>
+            <Button variant="secondary" onClick={() => navigate("/listings/new")}>
+              <PlusCircle aria-hidden="true" className="size-4" />
+              Sell a Book
+            </Button>
           </div>
         </div>
 
@@ -128,29 +126,30 @@ export function HomePage(): React.JSX.Element {
           </Link>
         </div>
 
-        {featuredQuery.isPending ? (
-          <ListingGridSkeleton count={4} />
-        ) : featuredQuery.data && featuredQuery.data.items.length > 0 ? (
+        <QueryState
+          isLoading={featuredQuery.isPending}
+          error={featuredQuery.error}
+          isEmpty={featuredQuery.data?.items.length === 0}
+          loadingSkeleton={<ListingGridSkeleton count={4} />}
+          emptyState={{
+            icon: BookOpen,
+            title: "No books listed yet",
+            description:
+              "Punah-Pustak is brand new here — be the first to give a book a second reader.",
+            action: (
+              <Button onClick={() => navigate("/listings/new")}>
+                <PlusCircle aria-hidden="true" className="size-4" />
+                Sell your first book
+              </Button>
+            ),
+          }}
+        >
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {featuredQuery.data.items.slice(0, 8).map((listing) => (
+            {featuredQuery.data?.items.slice(0, 8).map((listing) => (
               <ListingCard key={listing.id} listing={listing} />
             ))}
           </div>
-        ) : (
-          <EmptyState
-            icon={BookOpen}
-            title="No books listed yet"
-            description="Punah-Pustak is brand new here — be the first to give a book a second reader."
-            action={
-              <Link to="/listings/new">
-                <Button>
-                  <PlusCircle aria-hidden="true" className="size-4" />
-                  Sell your first book
-                </Button>
-              </Link>
-            }
-          />
-        )}
+        </QueryState>
       </section>
 
       {/* How it works */}

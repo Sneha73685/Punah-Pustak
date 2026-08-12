@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
 
 import { useAuth } from "@/auth/AuthContext";
@@ -31,6 +31,7 @@ function mobileNavLinkClass({ isActive }: { isActive: boolean }): string {
  */
 export function Layout(): React.JSX.Element {
   const { state, logout } = useAuth();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const isAdmin = state.status === "authenticated" && state.user.role === "admin";
@@ -90,9 +91,9 @@ export function Layout(): React.JSX.Element {
                 <NavLink to="/login" className={navLinkClass}>
                   Log in
                 </NavLink>
-                <Link to="/register">
-                  <Button variant="primary">Register</Button>
-                </Link>
+                <Button variant="primary" onClick={() => navigate("/register")}>
+                  Register
+                </Button>
               </>
             ) : null}
           </div>

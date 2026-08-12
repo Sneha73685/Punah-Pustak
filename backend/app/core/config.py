@@ -54,6 +54,20 @@ class Settings(BaseSettings):
     # applies to /auth/login, /auth/register, /auth/refresh.
     auth_rate_limit_per_minute: int = 10
 
+    # --- Trusted proxy (SEC-040) ------------------------------------------------
+    # How many reverse-proxy hops sit in front of this service and are
+    # trusted to have appended their own observed peer to `X-Forwarded-For`
+    # -- 0 (the default) means "trust nothing, use the raw TCP peer", which
+    # is exactly correct for local dev/CI (docker-compose, pytest), where
+    # nothing sits in front of uvicorn. Render deploys this behind its own
+    # edge/load-balancer layer plus, per Render's documented platform
+    # architecture, Cloudflare in front of that -- 2 hops -- so production
+    # sets this to 2 via the Render dashboard/blueprint. See
+    # `app.modules.auth.dependencies._extract_client_ip` for exactly how
+    # this number is used and why a client can't spoof around it just by
+    # sending their own `X-Forwarded-For` header.
+    trusted_proxy_hop_count: int = Field(default=0, ge=0)
+
     # --- CORS (DEPLOY-024) ------------------------------------------------------
     cors_allowed_origins: str = Field(
         default="http://localhost:5173",

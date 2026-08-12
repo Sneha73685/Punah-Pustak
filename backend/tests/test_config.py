@@ -86,3 +86,31 @@ class TestDatabaseUrlDriverNormalization:
         engine = create_engine(settings.database_url)
 
         assert engine.dialect.driver == "psycopg"
+
+
+class TestTrustedProxyHopCount:
+    """SEC-040: `trusted_proxy_hop_count` drives `_extract_client_ip`'s
+    trust model (see `test_auth_api.py::TestExtractClientIp` for the
+    extraction logic itself) — this only covers the setting's own
+    defaults/validation.
+    """
+
+    def test_defaults_to_zero(self) -> None:
+        """0 is the safe default: local dev, CI, and any environment that
+        doesn't explicitly opt in never trusts X-Forwarded-For at all.
+        """
+        settings = Settings()
+
+        assert settings.trusted_proxy_hop_count == 0
+
+    def test_rejects_a_negative_hop_count(self) -> None:
+        with pytest.raises(ValidationError):
+            Settings(trusted_proxy_hop_count=-1)
+
+    def test_accepts_the_configured_production_value(self) -> None:
+        """2 is what `render.yaml` sets in production (Render's own edge/
+        load-balancer + Cloudflare in front of it).
+        """
+        settings = Settings(trusted_proxy_hop_count=2)
+
+        assert settings.trusted_proxy_hop_count == 2

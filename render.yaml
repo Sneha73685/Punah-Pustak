@@ -38,6 +38,14 @@ services:
         value: "30"
       - key: AUTH_RATE_LIMIT_PER_MINUTE
         value: "10"
+      - key: TRUSTED_PROXY_HOP_COUNT
+        value: "2" # Render's edge/load-balancer + Cloudflare in front of it, per Render's
+        # documented platform architecture -- see Settings.trusted_proxy_hop_count and
+        # app.modules.auth.dependencies._extract_client_ip for the full trust model this
+        # drives (SEC-040's rate limiter). Requires a manual blueprint sync (or a one-time
+        # manual env var add in the Render dashboard) to actually take effect on the
+        # already-deployed service -- editing this file alone does not touch the live
+        # service.
       - key: CORS_ALLOWED_ORIGINS
         sync: false # the deployed Vercel frontend's exact origin, e.g. https://punah-pustak.vercel.app
       - key: STORAGE_ENDPOINT_URL
