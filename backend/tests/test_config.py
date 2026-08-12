@@ -69,7 +69,20 @@ class TestDatabaseUrlDriverNormalization:
 
         assert settings.database_url == "postgresql+psycopg://user:pass@host:5432/db"
 
-    def test_local_dev_default_is_already_qualified_and_unaffected(self) -> None:
+    def test_local_dev_default_is_already_qualified_and_unaffected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Isolated from the ambient environment: `Settings()` is
+        `pydantic-settings` and reads `DATABASE_URL` from the process
+        environment/`.env` if present, falling back to this field's
+        hardcoded default only when absent. Without clearing it here, this
+        assertion only holds by coincidence whenever the runner's ambient
+        `DATABASE_URL` happens to already match the hardcoded default
+        (true in CI, false for a developer whose local Postgres runs on a
+        non-default port) — it wasn't actually testing the field's default
+        in isolation.
+        """
+        monkeypatch.delenv("DATABASE_URL", raising=False)
         settings = Settings()
 
         assert (
