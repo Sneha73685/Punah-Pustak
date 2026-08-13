@@ -1,0 +1,24 @@
+# Docker Compose override for E2E runs — layered on top of the repo's own
+# ../docker-compose.yml, never replacing it:
+#
+#   docker compose -f docker-compose.yml -f e2e/docker-compose.e2e.yml up -d --build
+#
+# The only thing it changes: SEC-040's per-IP auth rate limit
+# (AUTH_RATE_LIMIT_PER_MINUTE, default 10/min in docker-compose.yml) is
+# raised for this stack only. Every Playwright browser action and API call
+# in this suite reaches the `api` container through the same Docker
+# port-forward from the host, so every login/register/refresh call in a
+# single suite run shares one IP as far as the in-memory limiter
+# (`app/core/rate_limit.py`) is concerned — three spec files' worth of
+# register/login calls comfortably exceeds the production-appropriate
+# default within the same 60-second window, which the limiter (correctly)
+# would reject with 429s that have nothing to do with the product being
+# broken. This does not touch `docker-compose.yml` (normal local dev is
+# unaffected) or any deployed environment (render.yaml is untouched) — it
+# only relaxes a tunable, already-documented-as-configurable value
+# (README.md's Environment Variables table) for this suite's own ephemeral
+# local stack.
+services:
+  api:
+    environment:
+      AUTH_RATE_LIMIT_PER_MINUTE: "100"

@@ -8,7 +8,10 @@ name: CI
 # service) is added here per TEST-020/§18.4. Milestone 5 (frontend
 # build-out) adds `frontend-tests` (TEST-010: Vitest + RTL component tests)
 # and a production build check alongside the type-check job already in
-# place from that milestone's tooling setup.
+# place from that milestone's tooling setup. Milestone 7 adds `e2e-tests`
+# (TEST-011: Playwright against the real Docker Compose stack) — see
+# e2e/README.md for what it covers and how it's isolated from every
+# deployed environment.
 on:
   push:
     branches: [main]
@@ -136,3 +139,54 @@ jobs:
 
       - name: Production build (DEPLOY-001 — same `tsc && vite build` docker-compose's image runs)
         run: npm run build
+
+  e2e-tests:
+    name: E2E / Playwright (TEST-011)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install Playwright + dependencies
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      # Same Compose stack local development uses, with one addition
+      # (e2e/docker-compose.e2e.yml raises SEC-040's per-IP auth rate limit
+      # for this ephemeral stack only — see that file's comment). Migrations
+      # apply automatically on `api` startup, same as local dev; no
+      # production resource (Vercel/Render/S3) is touched by this job.
+      - name: Start the Docker Compose stack
+        run: docker compose -f docker-compose.yml -f e2e/docker-compose.e2e.yml up -d --build
+
+      - name: Wait for backend + frontend readiness
+        run: ./e2e/scripts/wait-for-stack.sh
+
+      - name: Playwright E2E suite (TEST-011)
+        working-directory: e2e
+        run: npm test
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Upload Playwright report (traces/screenshots/video) on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose -f docker-compose.yml -f e2e/docker-compose.e2e.yml down -v

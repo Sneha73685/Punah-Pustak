@@ -52,17 +52,23 @@ npm run test:coverage     # with a coverage report (not currently CI-gated)
 
 Tests use `@testing-library/react` + `@testing-library/user-event`, mocking the `api/*.ts` layer (never the DOM, never a real network call) via `vi.mock`.
 
+## End-to-end: Playwright
+
+SRS §18.2/TEST-011's three critical-path E2E scenarios — seller lifecycle, admin moderation, and account recovery — are covered by a committed, runnable Playwright suite in [`e2e/`](../e2e/), driving a real Chromium browser against the project's own Docker Compose stack (never mocked, never against production). Full detail — architecture, how admin access and test data are handled safely, exactly how to run it locally and in CI — lives in [`e2e/README.md`](../e2e/README.md) rather than duplicated here. CI runs it on every PR via the `e2e-tests` job in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+
+This suite is also what caught a real bug during its own development: on a cold page load (direct URL, bookmark, or hard refresh — not a same-session SPA navigation), `ListingDetailPage`'s data fetch could reach the backend before the access token was restored from the refresh-token cookie, and for the one case where identity changes the response at the same URL (FR-006a: an owner viewing their own deleted listing), the result was a real, non-retried `404` — a bug in `src/api/client.ts`/`src/main.tsx`, not a test artifact (see git history for `client.test.ts`, added as its regression test).
+
 ## What is not automated (honest gap statement)
 
-- **End-to-end tests (Playwright).** The SRS (§18.2) specifies three critical-path E2E scenarios: seller lifecycle, admin moderation, and account recovery. **None of these exist as a committed, runnable test suite in this repository.** Every one of those flows *was* manually exercised against the live Docker Compose stack at various points during development — registering, creating a listing, uploading images, editing, marking sold, deleting, promoting an account to admin and exercising suspend/reset/remove, all driven through a real browser — but that verification is not repeatable from a checked-in file today. This is tracked as Milestone 7 scope; see the [README's Roadmap](../README.md#roadmap).
-- **Automated accessibility checks (axe-core).** The SRS (A11Y-007) calls for `axe-core` (via `@axe-core/playwright` or similar) to run in CI against the key pages as a WCAG 2.1 AA regression gate. **This does not exist.** The component library implements the underlying accessibility mechanics directly in code (label association via `htmlFor`/`id`, `aria-describedby` + `role="alert"` for errors, a manual focus trap in `Modal`, keyboard operability) and these were manually verified during development, but there is no automated, CI-enforced accessibility check today. This is Milestone 6 scope.
+- **Automated accessibility checks (axe-core).** The SRS (A11Y-007) calls for `axe-core` (via `@axe-core/playwright` or similar) to run in CI against the key pages as a WCAG 2.1 AA regression gate. **This does not exist yet.** The component library implements the underlying accessibility mechanics directly in code (label association via `htmlFor`/`id`, `aria-describedby` + `role="alert"` for errors, a manual focus trap in `Modal`, keyboard operability) and these were manually verified during development, but there is no automated, CI-enforced accessibility check today. This is Milestone 6 scope.
 - **Load testing.** SRS §18.3 calls for a one-time, manually-run k6/Locust check against the NFR-001 latency target before release. Not yet performed.
 - **Frontend coverage is not CI-gated** — `npm run test:coverage` exists and can be run locally, but no minimum threshold is enforced in CI the way the backend's is.
 
-If you are evaluating this repository and coverage/testing rigor matters to your assessment, the honest summary is: **the backend is tested exhaustively and automatically; the frontend's critical interaction paths (forms, the forced-password-change redirect, error handling) are covered by component tests; but there is no automated end-to-end or accessibility regression suite yet.**
+If you are evaluating this repository and coverage/testing rigor matters to your assessment, the honest summary is: **the backend is tested exhaustively and automatically; the frontend's critical interaction paths (forms, the forced-password-change redirect, error handling) are covered by component tests; the three SRS-mandated critical user journeys are covered end-to-end by a real-browser Playwright suite; but there is no automated accessibility regression gate yet.**
 
 ## Related documents
 
 - [`backend.md`](backend.md) / [`frontend.md`](frontend.md) — what's being tested
+- [`../e2e/README.md`](../e2e/README.md) — the Playwright suite: architecture, local/CI setup, safe test-data handling
 - [`../.github/workflows/ci.yml`](../.github/workflows/ci.yml) — exactly what CI runs, verbatim
 - [`../IMPLEMENTATION_SUMMARY.md`](../IMPLEMENTATION_SUMMARY.md) — the ordering-bug incident and other testing-related findings, in full

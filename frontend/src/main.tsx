@@ -5,7 +5,24 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "@/App";
 import { AuthProvider } from "@/auth/AuthContext";
+import { restoreSession } from "@/api/client";
 import "@/index.css";
+
+// Kicked off here, before React renders anything, rather than left solely
+// to `AuthProvider`'s own mount effect: React runs mount effects
+// child-first, so a deep child's own data-fetching effect (e.g.
+// `ListingDetailPage`'s `useListing`) fires before an ancestor provider's
+// effect does. Without an already-in-flight restore for `apiFetch`
+// (src/api/client.ts) to wait on, that child's very first request goes
+// out before the access token is restored from the refresh-token cookie —
+// harmless for most endpoints (a 401 there just triggers `apiFetch`'s
+// existing retry-after-refresh path), but wrong for the few whose
+// response depends on identity for an otherwise-identical URL, e.g.
+// FR-006a's "owner still sees their own deleted listing." `AuthProvider`
+// still calls `restoreSession()` itself on mount, exactly as before — that
+// call reuses this same in-flight promise (see `refreshAccessToken`'s own
+// dedup) rather than firing a second request.
+void restoreSession();
 
 // FE-003: TanStack Query owns all server state. `staleTime` is not 0
 // (TanStack Query's own default) because this app's data changes only in

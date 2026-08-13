@@ -111,6 +111,28 @@ async function performFetch<TResponse>(
   options: ApiFetchOptions,
   allowRetry: boolean,
 ): Promise<TResponse> {
+  // FR-006a/SEC-022: on a cold load (direct URL, bookmark, or a hard
+  // refresh — never a same-SPA-session navigation, since the token
+  // already lives in memory by then), the access token starts out empty
+  // by design and is only re-established asynchronously from the
+  // `HttpOnly` refresh-token cookie (`restoreSession`, called once at
+  // startup — see `main.tsx`). A request that reads `getAccessToken()`
+  // before that completes is indistinguishable from a genuinely
+  // unauthenticated caller — which, for most endpoints, just means an
+  // extra 401-triggered retry (see below). But a handful of endpoints
+  // return a *different* body depending on identity for the exact same
+  // URL rather than a 401 — most notably `GET /listings/{id}` on a
+  // deleted listing, which is 404 to everyone except the owner/admin
+  // (FR-006a). For that request, going out too early doesn't get retried
+  // by anything (it's a real, correctly-cached 404, not a 401) — the
+  // owner would see a permanent, incorrect "not found" for their own
+  // listing. Waiting for a startup restore already in flight closes that
+  // window; it is a no-op for every request after that first one
+  // resolves.
+  if (refreshInFlight) {
+    await refreshInFlight;
+  }
+
   const headers = new Headers();
   const token = getAccessToken();
   if (token) {
