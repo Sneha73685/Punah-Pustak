@@ -165,7 +165,7 @@ sequenceDiagram
     DB-->>Repo: rows
     Repo-->>S: Page(items, total)
     S-->>R: Page(items, total)
-    R-->>U: 200 { items, total, page, page_size }
+    R-->>U: 200 OK - items, total, page, page_size
 ```
 
 ### Authentication flow
@@ -176,16 +176,16 @@ sequenceDiagram
     participant A as Auth endpoints
     participant DB as PostgreSQL
 
-    U->>A: POST /auth/login {email, password}
+    U->>A: POST /auth/login (email, password)
     A->>DB: verify password hash (Argon2id), check is_active
-    A-->>U: 200 { access_token } + Set-Cookie refresh_token (HttpOnly, SameSite=Strict)
+    A-->>U: 200 OK - access_token + Set-Cookie refresh_token (HttpOnly, SameSite=Strict)
     Note over U: access_token kept in memory only, never localStorage
 
     U->>A: (15 min later) any request → 401
     U->>A: POST /auth/refresh (cookie sent automatically)
     A->>DB: look up hash of presented token, verify not revoked/expired
-    A->>DB: mark old token revoked; insert new token (same family)
-    A-->>U: 200 { access_token } + Set-Cookie new refresh_token
+    A->>DB: mark old token revoked, insert new token (same family)
+    A-->>U: 200 OK - access_token + Set-Cookie new refresh_token
 ```
 
 Refresh tokens rotate on every use. Presenting an already-rotated (revoked) token is treated as evidence of theft and revokes every token in that login's family, forcing a full re-login. Full detail: [`docs/authentication.md`](docs/authentication.md).
@@ -204,14 +204,14 @@ sequenceDiagram
     participant Store as StorageBackend (S3/MinIO)
     participant DB as PostgreSQL
 
-    U->>R: POST /listings/{id}/images (multipart, 1..6 files)
+    U->>R: POST /listings/:id/images (multipart, 1..6 files)
     R->>Svc: upload_images(listing_id, requester, files)
     Svc->>Svc: validate ownership, status, count, size, content-sniff type
     Svc->>Store: put(key, bytes, content_type) — per file
     Svc->>DB: add_images(listing_id, [(key, position), ...]) — only after all writes succeed
     DB-->>Svc: ListingImage rows
     Svc-->>R: images
-    R-->>U: 201 [{ id, url, position }, ...]
+    R-->>U: 201 Created - list of id, url, position
     U->>Store: GET image URL directly (browser fetches images, not through the API)
 ```
 
