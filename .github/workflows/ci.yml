@@ -11,7 +11,10 @@ name: CI
 # place from that milestone's tooling setup. Milestone 7 adds `e2e-tests`
 # (TEST-011: Playwright against the real Docker Compose stack) — see
 # e2e/README.md for what it covers and how it's isolated from every
-# deployed environment.
+# deployed environment. Milestone 6 adds the A11Y-007 axe-core regression
+# gate as another spec file (`e2e/a11y.spec.ts`) in that same job — it needs
+# the identical real-rendered-app-via-Playwright setup, so a separate job
+# would only duplicate the stack-startup steps below for no benefit.
 on:
   push:
     branches: [main]
@@ -141,7 +144,7 @@ jobs:
         run: npm run build
 
   e2e-tests:
-    name: E2E / Playwright (TEST-011)
+    name: E2E / Playwright (TEST-011) + accessibility (A11Y-007)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -169,7 +172,10 @@ jobs:
       - name: Wait for backend + frontend readiness
         run: ./e2e/scripts/wait-for-stack.sh
 
-      - name: Playwright E2E suite (TEST-011)
+      # Runs every `e2e/*.spec.ts` file, including `a11y.spec.ts`
+      # (A11Y-007's axe-core WCAG 2.1 AA gate) alongside the TEST-011
+      # critical-path specs — same command, same stack, no separate step.
+      - name: Playwright E2E suite (TEST-011) + accessibility gate (A11Y-007)
         working-directory: e2e
         run: npm test
 
