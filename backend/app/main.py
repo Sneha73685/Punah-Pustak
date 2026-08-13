@@ -16,6 +16,7 @@ from app.api.v1.router import api_v1_router
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
+from app.core.security_headers import SecurityHeadersMiddleware
 
 settings = get_settings()
 configure_logging(settings)
@@ -43,6 +44,17 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+# SEC-002. Starlette's `add_middleware` inserts each call at the *front* of
+# the middleware list, so — counterintuitively — the middleware added last
+# ends up wrapping the ones added earlier. Adding this after CORSMiddleware
+# means SecurityHeadersMiddleware wraps CORSMiddleware, not the reverse: it
+# sees (and can add headers to) every response CORSMiddleware produces,
+# including its own preflight responses, without altering any header CORS
+# already set. Swapping this order would still add the headers, but would
+# put CORS's own header-writing logic outside this middleware's reach for
+# no benefit — this order is deliberate, not incidental.
+app.add_middleware(SecurityHeadersMiddleware)
 
 register_exception_handlers(app)
 
