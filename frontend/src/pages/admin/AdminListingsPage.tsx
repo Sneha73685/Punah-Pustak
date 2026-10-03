@@ -65,30 +65,40 @@ export function AdminListingsPage(): React.JSX.Element {
       </div>
 
       <QueryState isLoading={query.isPending} error={query.error}>
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-card">
+        {/* No entrance animation (Phase 3 motion pass) — same reasoning
+            as `AdminUsersPage`'s table wrapper. */}
+        <div className="overflow-hidden rounded-2xl border border-border bg-white">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-border bg-paper-muted text-ink-muted">
-                  <th className="px-4 py-3 font-medium">Title</th>
-                  <th className="px-4 py-3 font-medium">Seller</th>
-                  <th className="px-4 py-3 font-medium">Price</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
+                <tr className="border-b border-border bg-paper-muted text-xs font-semibold uppercase tracking-wide text-ink-soft">
+                  <th className="px-4 py-3 font-semibold">Title</th>
+                  <th className="px-4 py-3 font-semibold">Seller</th>
+                  <th className="px-4 py-3 font-semibold">Price</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {query.data?.items.map((listing) => (
-                  <tr key={listing.id} className="border-b border-border last:border-0 hover:bg-paper-muted/60">
+                  <tr
+                    key={listing.id}
+                    className="border-b border-border transition-colors last:border-0 hover:bg-paper-muted/60"
+                  >
                     <td className="px-4 py-3">
-                      <Link to={`/listings/${listing.id}`} className="font-medium text-moss-600 hover:underline">
+                      <Link
+                        to={`/listings/${listing.id}`}
+                        className="font-medium text-moss-600 transition-colors hover:text-moss-700 hover:underline"
+                      >
                         {listing.title}
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-ink">{listing.seller_display_name}</td>
-                    <td className="px-4 py-3 text-ink">{formatPrice(listing.price)}</td>
+                    <td className="px-4 py-3 font-serif text-ink">{formatPrice(listing.price)}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={STATUS_TONES[listing.status]}>{STATUS_LABELS[listing.status]}</Badge>
+                      <Badge tone={STATUS_TONES[listing.status]} dot>
+                        {STATUS_LABELS[listing.status]}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3">
                       {listing.status !== "deleted" && (

@@ -20,6 +20,22 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
    */
   padding?: CardPadding;
   tone?: CardTone;
+  /**
+   * Material hierarchy, not a style toggle: `true` (default) is for
+   * content genuinely presented as a distinct, lifted object — a listing
+   * card, a modal, an auth/interstitial panel, something floating above
+   * the page. `false` is for a *structural* grouping that happens to
+   * share this component's rounded/bordered container (a form panel, an
+   * inline status message, a data table wrapper) but isn't meant to read
+   * as "elevated" — it drops `shadow-card` while keeping the border, so
+   * the container still reads as a defined region without competing for
+   * the same visual weight as the page's genuinely floating surfaces.
+   * Reach for `elevated={false}` before reaching for no `Card` at all;
+   * reach for no `Card` (plain spacing/`border-t`/`divide-y`) before
+   * stacking three of these side by side for content that isn't actually
+   * three separate objects.
+   */
+  elevated?: boolean;
 }
 
 const PADDING_CLASSES: Record<CardPadding, string> = {
@@ -41,16 +57,25 @@ export function Card({
   interactive = false,
   padding = "md",
   tone = "white",
+  elevated = true,
   children,
   ...rest
 }: CardProps): React.JSX.Element {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border shadow-card",
+        "rounded-2xl border border-border",
+        elevated && "shadow-card",
         TONE_CLASSES[tone],
         PADDING_CLASSES[padding],
-        interactive && "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover",
+        // Phase 3 motion pass: 300ms → 200ms. This fires on every listing
+        // -card hover across the whole app — the highest-frequency
+        // interactive motion in the system — so it needs to read as an
+        // immediate response ("this object responds to me"), not a
+        // deliberate reveal; 200ms sits in the tactile-feedback range
+        // rather than the slower entrance-animation range.
+        interactive &&
+          "transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-1 hover:border-border-strong hover:shadow-card-hover",
         className,
       )}
       {...rest}

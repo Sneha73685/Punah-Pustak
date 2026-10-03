@@ -72,7 +72,7 @@ describe("ListingCard", () => {
         <ListingCard listing={makeListing({ images: [] })} />
       </MemoryRouter>,
     );
-    expect(screen.getByText("No image")).toBeInTheDocument();
+    expect(screen.getByText("No cover photo")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
 
     rerender(

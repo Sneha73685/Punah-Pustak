@@ -172,6 +172,41 @@ class ListingRepository:
         query = select(Listing).where(Listing.id == listing_id).with_for_update()
         return self._db.scalars(query).one_or_none()
 
+    def list_available_by_owner(
+        self, owner_id: uuid.UUID, *, exclude_id: uuid.UUID, limit: int
+    ) -> list[Listing]:
+        """P1B ("more from this seller"): a small, unpaginated preview of a
+        seller's other currently-available listings, shown on that seller's
+        own listing-detail pages. Deliberately not `get_by_owner` (FR-025,
+        every status, unfiltered, no limit) — that method is My Listings'
+        owner-only view; this one is public-facing, so it carries the same
+        two hard, unconditional constraints as `browse` and for the same
+        reason (see that method's docstring): `status = available` and
+        `User.is_active = True`. Without the latter, a suspended seller's
+        other listings — already excluded from public browse/search — would
+        leak back into visibility through this side channel, the one place
+        on the site that still resolves a suspended seller's own (single)
+        listing by direct link (`ListingService.get_detail` has no
+        `is_active` check of its own, by design).
+
+        `exclude_id` keeps the anchor listing itself out of its own "more
+        from this seller" section. `limit` (not full pagination) is
+        intentional: this is a bounded preview, not a second browse surface
+        — see `router.get_listing`'s call site for the actual number.
+        """
+        query = (
+            select(Listing)
+            .join(User, User.id == Listing.owner_id)
+            .where(Listing.owner_id == owner_id)
+            .where(Listing.status == ListingStatusEnum.AVAILABLE)
+            .where(Listing.id != exclude_id)
+            .where(User.is_active.is_(True))
+            .options(selectinload(Listing.images))
+            .order_by(Listing.created_at.desc(), Listing.id.desc())
+            .limit(limit)
+        )
+        return list(self._db.scalars(query).unique())
+
     def get_by_owner(self, owner_id: uuid.UUID) -> list[Listing]:
         """FR-025: My Listings — every status, no filtering. Orders by
         `created_at DESC, id DESC` — see `list_all`'s docstring for why

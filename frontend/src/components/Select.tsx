@@ -46,9 +46,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         aria-describedby={error ? errorId : undefined}
         className={cn(
           "rounded-lg border bg-white px-3 py-2.5 text-sm text-ink",
-          "transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss-500/40",
+          "transition-[box-shadow,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss-500/40",
           "disabled:cursor-not-allowed disabled:bg-paper-muted disabled:text-ink-muted",
-          error ? "border-clay-500" : "border-border-strong",
+          error
+            ? "border-clay-500"
+            : "border-border-strong hover:border-ink-soft/60 focus-visible:border-moss-500",
           className,
         )}
         {...rest}

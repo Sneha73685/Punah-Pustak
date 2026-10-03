@@ -2,11 +2,11 @@ import { useNavigate } from "react-router-dom";
 import { BookOpen, PlusCircle } from "lucide-react";
 
 import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingGridSkeleton } from "@/components/Skeleton";
 import { PageHeader } from "@/components/PageHeader";
 import { QueryState } from "@/components/QueryState";
+import { StatStrip } from "@/components/StatStrip";
 import { useMyListings } from "@/hooks/useListings";
 import { STATUS_LABELS } from "@/lib/listingLabels";
 import type { ListingStatus } from "@/api/types";
@@ -44,14 +44,13 @@ export function MyListingsPage(): React.JSX.Element {
       />
 
       {query.data && query.data.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
-          {SUMMARY_STATUSES.map((status) => (
-            <Card key={status} className="text-center">
-              <p className="text-2xl font-semibold text-ink">{counts[status]}</p>
-              <p className="text-sm text-ink-muted">{STATUS_LABELS[status]}</p>
-            </Card>
-          ))}
-        </div>
+        <StatStrip
+          items={[
+            { label: STATUS_LABELS.available, value: counts.available, tone: "accent" },
+            { label: STATUS_LABELS.sold, value: counts.sold },
+            { label: STATUS_LABELS.deleted, value: counts.deleted, tone: "muted" },
+          ]}
+        />
       )}
 
       <QueryState
@@ -71,6 +70,9 @@ export function MyListingsPage(): React.JSX.Element {
           ),
         }}
       >
+        {/* No entrance animation here (Phase 3 motion pass) — a seller
+            managing their own listings revisits this page routinely; see
+            `ListingCard`'s own doc comment. */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {query.data?.map((listing) => (
             <ListingCard key={listing.id} listing={listing} showStatus />

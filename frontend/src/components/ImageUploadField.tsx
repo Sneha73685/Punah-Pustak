@@ -98,15 +98,17 @@ export function ImageUploadField({
         onDragLeave={() => setIsDragActive(false)}
         onDrop={handleDrop}
         className={cn(
-          "flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
+          "flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-10 text-center transition-[border-color,background-color,transform] duration-200",
           remaining <= 0
             ? "cursor-not-allowed border-border bg-paper-muted text-ink-soft"
             : isDragActive
-              ? "border-moss-500 bg-moss-50"
+              ? "scale-[1.01] border-moss-500 bg-moss-50"
               : "border-border-strong bg-paper-muted/60 hover:border-moss-500/60 hover:bg-moss-50/60",
         )}
       >
-        <Upload aria-hidden="true" className="size-6 text-ink-muted" />
+        <span className="flex size-10 items-center justify-center rounded-full bg-white shadow-card">
+          <Upload aria-hidden="true" className="size-5 text-moss-600" />
+        </span>
         <span className="text-sm font-medium text-ink">
           {remaining > 0 ? "Drag & drop photos, or click to browse" : "Photo limit reached"}
         </span>
@@ -131,10 +133,10 @@ export function ImageUploadField({
           {files.map((file, index) => {
             const tooLarge = file.size > MAX_IMAGE_SIZE_BYTES;
             return (
-              <li key={`${file.name}-${index}`} className="relative">
+              <li key={`${file.name}-${index}`} className="animate-fade-up relative">
                 <div
                   className={cn(
-                    "aspect-square overflow-hidden rounded-lg border bg-paper-muted",
+                    "aspect-square overflow-hidden rounded-lg border bg-paper-muted shadow-card",
                     tooLarge ? "border-clay-500" : "border-border",
                   )}
                 >
@@ -148,7 +150,7 @@ export function ImageUploadField({
                   type="button"
                   onClick={() => removeFile(index)}
                   aria-label={`Remove ${file.name}`}
-                  className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-ink text-white shadow-card hover:bg-clay-600"
+                  className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-ink text-white shadow-card transition-transform hover:scale-110 hover:bg-clay-600"
                 >
                   <X aria-hidden="true" className="size-3" />
                 </button>

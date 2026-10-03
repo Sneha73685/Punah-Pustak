@@ -55,9 +55,15 @@ export function RegisterPage(): React.JSX.Element {
   if (isRegistered) {
     return (
       <div className="mx-auto max-w-sm">
-        <Card padding="lg" className="flex flex-col items-center gap-3 text-center">
-          <CheckCircle2 aria-hidden="true" className="size-10 text-moss-500" />
-          <h1 className="font-serif text-xl font-semibold text-ink">Account created</h1>
+        <Card
+          padding="lg"
+          tone="muted"
+          className="animate-scale-in flex flex-col items-center gap-3 text-center"
+        >
+          <span className="flex size-14 items-center justify-center rounded-full bg-moss-50 text-moss-500 shadow-card">
+            <CheckCircle2 aria-hidden="true" className="size-8" />
+          </span>
+          <h1 className="font-serif text-2xl font-semibold text-ink">Account created</h1>
           <p className="text-sm text-ink-muted">
             You can now{" "}
             <Link to="/login" className="font-medium text-moss-600 hover:underline">
@@ -72,7 +78,7 @@ export function RegisterPage(): React.JSX.Element {
 
   return (
     <AuthShell>
-      <h1 className="font-serif text-2xl font-semibold text-ink">Create your account</h1>
+      <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">Create your account</h1>
       <p className="mt-1 text-sm text-ink-muted">Join Punah-Pustak to buy and sell books.</p>
       <form className="mt-6 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <Input

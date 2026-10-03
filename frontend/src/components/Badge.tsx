@@ -6,6 +6,12 @@ export type BadgeTone = "neutral" | "success" | "warning" | "danger";
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   tone?: BadgeTone;
+  /** Adds a small leading status dot in the tone's color — an additional,
+   * non-text signal for status badges (e.g. available/sold/removed) layered
+   * on top of the label, never instead of it (A11Y-003 still holds: the
+   * dot is `aria-hidden`, the visible text remains the only thing that
+   * actually has to be read to understand the status). */
+  dot?: boolean;
 }
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
@@ -13,6 +19,13 @@ const TONE_CLASSES: Record<BadgeTone, string> = {
   success: "bg-moss-50 text-moss-700",
   warning: "bg-gold-50 text-gold-600",
   danger: "bg-clay-50 text-clay-600",
+};
+
+const DOT_CLASSES: Record<BadgeTone, string> = {
+  neutral: "bg-ink-soft",
+  success: "bg-moss-500",
+  warning: "bg-gold-500",
+  danger: "bg-clay-500",
 };
 
 /**
@@ -26,6 +39,7 @@ const TONE_CLASSES: Record<BadgeTone, string> = {
  */
 export function Badge({
   tone = "neutral",
+  dot = false,
   className,
   children,
   ...rest
@@ -33,12 +47,13 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium",
         TONE_CLASSES[tone],
         className,
       )}
       {...rest}
     >
+      {dot && <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", DOT_CLASSES[tone])} />}
       {children}
     </span>
   );

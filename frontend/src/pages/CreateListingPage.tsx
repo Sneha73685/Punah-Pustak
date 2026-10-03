@@ -62,7 +62,7 @@ export function CreateListingPage(): React.JSX.Element {
         title="List a book"
         description="A few details now, and it's live on Punah-Pustak for other readers to find."
       />
-      <Card padding="lg">
+      <Card padding="lg" elevated={false} className="animate-fade-up">
         <ListingForm
           initialValues={EMPTY_LISTING_FORM_VALUES}
           onSubmit={handleSubmit}

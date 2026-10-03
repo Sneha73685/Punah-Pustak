@@ -105,9 +105,12 @@ export function ListingForm({
   return (
     <form className="flex flex-col gap-8" onSubmit={(e) => void handleSubmit(e)} noValidate>
       <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="font-serif text-lg font-semibold text-ink">Book details</h2>
-          <p className="text-sm text-ink-muted">What is it, and what should a buyer know?</p>
+        <div className="flex items-baseline gap-2 border-b border-border pb-3">
+          <span className="font-serif text-sm font-semibold text-moss-600">01</span>
+          <div>
+            <h2 className="font-serif text-lg font-semibold text-ink">Book details</h2>
+            <p className="text-sm text-ink-muted">What is it, and what should a buyer know?</p>
+          </div>
         </div>
         <Input
           label="Title"
@@ -147,9 +150,12 @@ export function ListingForm({
       </section>
 
       <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="font-serif text-lg font-semibold text-ink">Category, condition & price</h2>
-          <p className="text-sm text-ink-muted">Help buyers filter to exactly what they want.</p>
+        <div className="flex items-baseline gap-2 border-b border-border pb-3">
+          <span className="font-serif text-sm font-semibold text-moss-600">02</span>
+          <div>
+            <h2 className="font-serif text-lg font-semibold text-ink">Category, condition & price</h2>
+            <p className="text-sm text-ink-muted">Help buyers filter to exactly what they want.</p>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
@@ -185,9 +191,12 @@ export function ListingForm({
       </section>
 
       <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="font-serif text-lg font-semibold text-ink">Photos</h2>
-          <p className="text-sm text-ink-muted">Listings with real photos sell faster.</p>
+        <div className="flex items-baseline gap-2 border-b border-border pb-3">
+          <span className="font-serif text-sm font-semibold text-moss-600">03</span>
+          <div>
+            <h2 className="font-serif text-lg font-semibold text-ink">Photos</h2>
+            <p className="text-sm text-ink-muted">Listings with real photos sell faster.</p>
+          </div>
         </div>
         {children}
       </section>

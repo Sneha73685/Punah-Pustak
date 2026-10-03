@@ -55,8 +55,15 @@
   --font-serif: "Source Serif 4", ui-serif, Georgia, "Times New Roman", serif;
 
   --shadow-card: 0 1px 2px 0 rgba(42, 36, 32, 0.05), 0 1px 3px 0 rgba(42, 36, 32, 0.04);
-  --shadow-card-hover: 0 8px 20px -6px rgba(42, 36, 32, 0.16), 0 2px 6px -2px rgba(42, 36, 32, 0.08);
+  --shadow-card-hover: 0 10px 24px -8px rgba(42, 36, 32, 0.18), 0 2px 6px -2px rgba(42, 36, 32, 0.08);
   --shadow-panel: 0 2px 8px 0 rgba(42, 36, 32, 0.06);
+  --shadow-lift: 0 20px 44px -16px rgba(42, 36, 32, 0.24), 0 4px 12px -4px rgba(42, 36, 32, 0.1);
+  /* Phase 2A ("book as object"): a resting contact shadow for `BookCover` —
+     warmer and wider than `shadow-card`, reading as an object set down on
+     the page rather than a UI panel's elevation. `shadow-lift` (already
+     above) is reused as its hover/lift state rather than adding a second
+     new token for that. */
+  --shadow-object: 0 16px 28px -14px rgba(42, 36, 32, 0.2), 0 3px 8px -3px rgba(42, 36, 32, 0.1);
 }
 
 :root {
@@ -65,13 +72,37 @@
 
 body {
   @apply bg-paper text-ink antialiased;
+  position: relative;
   font-family: var(--font-sans);
+  font-variant-numeric: oldstyle-nums;
+}
+
+/* A distinctive, near-invisible paper grain across the whole app — the one
+   textural signature tying every surface back to "second-hand paper"
+   rather than a flat digital fill. Fixed + z-index:-1 so it never sits
+   above content or intercepts pointer events, and its opacity (~3%) is
+   low enough it can't move any text's contrast below AA. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 h1,
 h2,
 h3 {
   font-family: var(--font-serif);
+}
+
+/* Editorial numerals (prices, page numbers, stats) read as tabular,
+   old-style serif figures rather than default lining sans digits — a
+   small typographic signature reused everywhere a price appears. */
+.font-serif {
+  font-variant-numeric: oldstyle-nums;
 }
 
 /* A11Y-004/A11Y-006: a visible focus ring is non-negotiable for keyboard
@@ -82,4 +113,114 @@ h3 {
 :focus-visible {
   @apply outline outline-2 outline-offset-2;
   outline-color: var(--color-moss-500);
+}
+
+/* Skeleton shimmer sweep — kept outside the reduced-motion-gated block
+   below since `Skeleton` disables it itself via the `motion-reduce:`
+   variant (Tailwind's built-in `prefers-reduced-motion: reduce` query),
+   the same effect achieved the Tailwind-utility way instead of a bespoke
+   media query, since it's a single component using it rather than a
+   shared entrance-animation vocabulary. 1.2s (down from an earlier 1.6s,
+   Phase 3 motion pass) — a loading indicator reads as "actively working"
+   faster than it reads as decorative drift; this is the single
+   most-frequently-seen animation in the app (every loading state, on
+   every page), so its pace sets the app's felt loading speed more than
+   any other motion decision here. */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ---- Motion system -----------------------------------------------------
+   A small, shared set of entrance keyframes (section/card reveal, modal/menu
+   transitions) rather than each component inventing its own. Every
+   animation is opacity/transform only (GPU-friendly, Phase 8), and the
+   whole block is gated behind `prefers-reduced-motion: no-preference` — by
+   default (reduced motion, or the query unsupported) elements simply render
+   in their final state with no animation, never a stuck mid-transition
+   frame (A11Y floor, Phase 7).
+
+   `fade-up`/`scale-in` deliberately do NOT animate `opacity`. They're
+   applied directly to text-bearing containers (cards, table wrappers, list
+   items, the modal panel) — an opacity 0→1 ramp there means real, if
+   brief, sub-4.5:1 contrast on that text for the ~250-600ms the animation
+   is in flight, not just a cosmetic detail (axe-core catching an admin
+   table's `<td>` text failing color-contrast mid-fade-in — and, worse,
+   the modal panel failing even with its OWN opacity left alone, because
+   it sat inside the backdrop's opacity-animated `<div>` and CSS opacity
+   is subtree-multiplicative: a fading *ancestor* drags every descendant's
+   effective rendered opacity down with it, text included — is what
+   surfaced this). Transform-only motion still reads as a deliberate
+   reveal without that window where the content is technically unreadable;
+   the modal backdrop itself now appears instantly for the same reason,
+   rather than fading in around the panel it contains. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes fade-up {
+    from {
+      transform: translateY(12px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      transform: scale(0.96) translateY(4px);
+    }
+    to {
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  /* Phase 3 motion pass: amplitude down from 8px to 5px and the cycle
+     lengthened from 6s to 8s — at 8px/6s the hero illustration read as
+     visibly, rhythmically bobbing in peripheral vision while someone
+     reads the headline or types into the search field, closer to a
+     looping GIF than a resting physical object. A slower, shorter travel
+     keeps it legibly alive without asking for attention. */
+  @keyframes drift {
+    0%,
+    100% {
+      transform: translateY(0) rotate(var(--drift-rotate, -3deg));
+    }
+    50% {
+      transform: translateY(-5px) rotate(var(--drift-rotate, -3deg));
+    }
+  }
+
+  /* A dedicated, fast open transition for the mobile nav panel — it used
+     to reuse `fade-up` (built for a full page section's one-time reveal:
+     12px of travel, 600ms) forced down to 250ms via an inline style
+     override. That's exactly the "fork the token instead of extending
+     it" anti-pattern: the amplitude was still tuned for a large section,
+     and the duration lived in a call site's inline style instead of the
+     shared vocabulary. This is sized for what it actually is — a small
+     panel a mobile user may open and close repeatedly in one session,
+     closer to a dropdown than a page moment. */
+  @keyframes menu-in {
+    from {
+      transform: translateY(-6px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .animate-drift {
+    animation: drift 8s ease-in-out infinite;
+  }
+
+  .animate-menu-in {
+    animation: menu-in 0.18s cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
 }

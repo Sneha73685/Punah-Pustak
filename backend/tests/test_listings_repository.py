@@ -8,6 +8,7 @@ tempted to pass.
 """
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -215,6 +216,110 @@ class TestBrowse:
 
         result = repo.browse(filters=ListingFilters(), page=1, page_size=10)
         assert [listing_.id for listing_ in result.items] == [listing.id]
+
+
+class TestListAvailableByOwner:
+    """P1B ("more from this seller"): `ListingRepository.list_available_by_owner`."""
+
+    def test_excludes_the_given_listing(self, db_session: Session) -> None:
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        anchor = _make_listing(repo, owner.id, title="Anchor")
+        other = _make_listing(repo, owner.id, title="Other")
+
+        result = repo.list_available_by_owner(owner.id, exclude_id=anchor.id, limit=10)
+
+        assert [listing.id for listing in result] == [other.id]
+
+    def test_never_returns_sold_or_deleted(self, db_session: Session) -> None:
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        anchor = _make_listing(repo, owner.id, title="Anchor")
+        available = _make_listing(repo, owner.id, title="Available")
+        sold = _make_listing(repo, owner.id, title="Sold")
+        deleted = _make_listing(repo, owner.id, title="Deleted")
+        repo.mark_sold(sold)
+        repo.soft_delete(deleted)
+
+        result = repo.list_available_by_owner(owner.id, exclude_id=anchor.id, limit=10)
+
+        assert [listing.id for listing in result] == [available.id]
+
+    def test_scoped_to_the_given_owner_only(self, db_session: Session) -> None:
+        owner_a = _make_owner(db_session)
+        owner_b = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        anchor = _make_listing(repo, owner_a.id, title="Seller A's Anchor")
+        _make_listing(repo, owner_b.id, title="Seller B's Book")
+
+        result = repo.list_available_by_owner(owner_a.id, exclude_id=anchor.id, limit=10)
+
+        assert result == []
+
+    def test_excludes_listings_owned_by_a_suspended_seller(self, db_session: Session) -> None:
+        """Same `is_active` join as `TestBrowse`'s identically-named test,
+        and for the same reason — see `list_available_by_owner`'s own
+        docstring for why this discovery surface must not become a second
+        way for a suspended seller's listings to stay publicly visible.
+        """
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        anchor = _make_listing(repo, owner.id, title="Anchor")
+        _make_listing(repo, owner.id, title="Other")
+        owner.is_active = False
+        db_session.flush()
+
+        result = repo.list_available_by_owner(owner.id, exclude_id=anchor.id, limit=10)
+
+        assert result == []
+
+    def test_orders_newest_first(self, db_session: Session) -> None:
+        """Same-transaction inserts share Postgres's transaction-start
+        `now()` (see `ListingRepository.list_all`'s docstring on the
+        `created_at DESC, id DESC` tiebreaker) — a UUID `id` has no
+        correlation with insertion order, so `created_at` is forced apart
+        directly here rather than relying on insertion order alone, or this
+        test would be exercising a random tiebreak instead of the ordering
+        it claims to prove.
+        """
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        anchor = _make_listing(repo, owner.id, title="Anchor")
+        first = _make_listing(repo, owner.id, title="First")
+        second = _make_listing(repo, owner.id, title="Second")
+        first.created_at = datetime.now(UTC) - timedelta(minutes=1)
+        second.created_at = datetime.now(UTC)
+        db_session.flush()
+
+        result = repo.list_available_by_owner(owner.id, exclude_id=anchor.id, limit=10)
+
+        assert [listing.id for listing in result] == [second.id, first.id]
+
+    def test_limit_bounds_the_result_even_with_more_available(self, db_session: Session) -> None:
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        anchor = _make_listing(repo, owner.id, title="Anchor")
+        for i in range(5):
+            _make_listing(repo, owner.id, title=f"Other {i}")
+
+        result = repo.list_available_by_owner(owner.id, exclude_id=anchor.id, limit=3)
+
+        assert len(result) == 3
+
+    def test_loads_images_without_a_separate_query_per_listing(self, db_session: Session) -> None:
+        """`selectinload` proof, same style as `TestGetByIdAndOwner.test_get_by_id_loads_images`
+        — asserting `.images` is populated is enough to show it wasn't
+        lazy-loaded after the fact against a closed/expired session.
+        """
+        owner = _make_owner(db_session)
+        repo = ListingRepository(db_session)
+        anchor = _make_listing(repo, owner.id, title="Anchor")
+        other = _make_listing(repo, owner.id, title="Other")
+        repo.add_images(other.id, [("listings/x/a.jpg", 0)])
+
+        result = repo.list_available_by_owner(owner.id, exclude_id=anchor.id, limit=10)
+
+        assert len(result[0].images) == 1
 
 
 class TestListAll:

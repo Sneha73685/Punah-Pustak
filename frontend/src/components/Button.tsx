@@ -14,11 +14,11 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-moss-500 text-white shadow-card hover:bg-moss-600 focus-visible:bg-moss-600 active:bg-moss-700",
+    "bg-moss-500 text-white shadow-card hover:bg-moss-600 hover:shadow-card-hover focus-visible:bg-moss-600 active:bg-moss-700",
   secondary:
-    "bg-paper text-ink border border-border-strong hover:bg-paper-muted focus-visible:bg-paper-muted",
+    "bg-paper text-ink border border-border-strong hover:border-moss-500/50 hover:bg-paper-muted focus-visible:bg-paper-muted",
   danger:
-    "bg-clay-500 text-white shadow-card hover:bg-clay-600 focus-visible:bg-clay-600 active:bg-clay-700",
+    "bg-clay-500 text-white shadow-card hover:bg-clay-600 hover:shadow-card-hover focus-visible:bg-clay-600 active:bg-clay-700",
   ghost: "text-ink-muted hover:bg-paper-muted hover:text-ink focus-visible:bg-paper-muted",
 };
 
@@ -36,7 +36,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-busy={isLoading || undefined}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium",
-        "transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50",
+        "transition-[color,background-color,border-color,box-shadow,transform] duration-150",
+        "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
         VARIANT_CLASSES[variant],
         className,
       )}

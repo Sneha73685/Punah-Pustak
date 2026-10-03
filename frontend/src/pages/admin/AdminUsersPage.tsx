@@ -95,28 +95,34 @@ export function AdminUsersPage(): React.JSX.Element {
       )}
 
       <QueryState isLoading={query.isPending} error={query.error}>
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-card">
+        {/* No entrance animation (Phase 3 motion pass) — an admin
+            re-paginating/filtering this table wants speed and scanning,
+            not a reveal replaying on every click. */}
+        <div className="overflow-hidden rounded-2xl border border-border bg-white">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-border bg-paper-muted text-ink-muted">
-                  <th className="px-4 py-3 font-medium">Email</th>
-                  <th className="px-4 py-3 font-medium">Display name</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
+                <tr className="border-b border-border bg-paper-muted text-xs font-semibold uppercase tracking-wide text-ink-soft">
+                  <th className="px-4 py-3 font-semibold">Email</th>
+                  <th className="px-4 py-3 font-semibold">Display name</th>
+                  <th className="px-4 py-3 font-semibold">Created</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {query.data?.items.map((user) => (
-                  <tr key={user.id} className="border-b border-border last:border-0 hover:bg-paper-muted/60">
+                  <tr
+                    key={user.id}
+                    className="border-b border-border transition-colors last:border-0 hover:bg-paper-muted/60"
+                  >
                     <td className="px-4 py-3 text-ink">{user.email}</td>
                     <td className="px-4 py-3 text-ink">{user.display_name}</td>
                     <td className="px-4 py-3 text-ink-muted">
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge tone={user.is_active ? "success" : "danger"}>
+                      <Badge tone={user.is_active ? "success" : "danger"} dot>
                         {user.is_active ? "Active" : "Suspended"}
                       </Badge>
                     </td>

@@ -10,8 +10,9 @@ import { cn } from "@/lib/cn";
 
 function navLinkClass({ isActive }: { isActive: boolean }): string {
   return cn(
-    "rounded-lg px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-paper-muted hover:text-ink",
-    isActive && "bg-moss-50 text-moss-700",
+    "relative rounded-lg px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-paper-muted hover:text-ink",
+    "after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:rounded-full after:bg-moss-500 after:transition-transform after:duration-200",
+    isActive ? "text-moss-700 after:scale-x-100" : "after:scale-x-0",
   );
 }
 
@@ -44,10 +45,10 @@ export function Layout(): React.JSX.Element {
       >
         Skip to main content
       </a>
-      <header className="sticky top-0 z-40 border-b border-border bg-paper/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-border bg-paper/90 backdrop-blur-md">
         <nav
           aria-label="Main navigation"
-          className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6"
+          className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6"
         >
           <Link to="/" className="shrink-0" onClick={() => setIsMenuOpen(false)}>
             <Logo />
@@ -100,7 +101,7 @@ export function Layout(): React.JSX.Element {
 
           <button
             type="button"
-            className="inline-flex items-center justify-center rounded-lg p-2 text-ink hover:bg-paper-muted md:hidden"
+            className="inline-flex items-center justify-center rounded-lg p-2 text-ink transition-colors hover:bg-paper-muted md:hidden"
             aria-expanded={isMenuOpen}
             aria-controls="mobile-nav"
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
@@ -111,7 +112,7 @@ export function Layout(): React.JSX.Element {
         </nav>
 
         {isMenuOpen && (
-          <div id="mobile-nav" className="border-t border-border bg-paper px-4 pb-4 md:hidden">
+          <div id="mobile-nav" className="animate-menu-in border-t border-border bg-paper px-4 pb-4 md:hidden">
             <div className="flex flex-col gap-1 pt-2">
               <NavLink to="/listings" className={mobileNavLinkClass} end onClick={() => setIsMenuOpen(false)}>
                 Browse

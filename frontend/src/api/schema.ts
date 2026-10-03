@@ -114,7 +114,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Listing detail (FR-005/FR-006a/API-012) */
+        /**
+         * Listing detail (FR-005/FR-006a/API-012)
+         * @description Frontend Phase 2 ("seller trust presentation"): the one place
+         *     `seller_member_since`/`seller_active_listings_count` get filled in — see
+         *     `ListingPublic`'s own docstring for why every other `ListingPublic`
+         *     -returning endpoint deliberately leaves them `None` instead. `owner_id`
+         *     on a `Listing` has no ORM-level `relationship` to `User` (see
+         *     `listings.models`'s module docstring), so this is a second,
+         *     independent `User` lookup alongside the one already inside `to_public()`
+         *     — an accepted, deliberate duplicate: a single extra indexed-PK read on a
+         *     single-item detail page, not a per-row cost, so it isn't worth widening
+         *     `to_public()`'s signature (six other call sites) just to share it.
+         *     `count_by_owner_status` (FR-032, already used by `GET
+         *     /users/me/listings/summary`) is reused as-is for the "active" count —
+         *     it's the codebase's one existing, already-tested "count this owner's
+         *     listings by status" query, and "active" here means exactly what
+         *     `ListingStatusEnum.AVAILABLE` means everywhere else in this API
+         *     (`browse`'s hard status filter, `_require_available`'s edit/mark-sold
+         *     gate) — not a new, second definition of "active".
+         *
+         *     `seller_other_listings` (P1B, "more from this seller") reuses the
+         *     already-fetched `owner.display_name` for every entry via
+         *     `_assemble_public` rather than calling `to_public()` per item — all of
+         *     them share this same owner, so that would be a redundant `User` lookup
+         *     per listing instead of the single query
+         *     `list_available_by_owner` already is (which itself eager-loads images,
+         *     same as everywhere else, so no per-item image query either).
+         */
         get: operations["get_listing_api_v1_listings__listing_id__get"];
         put?: never;
         post?: never;
@@ -491,6 +518,23 @@ export interface components {
          *     maintaining two nearly-identical schemas — see IMPLEMENTATION_SUMMARY.md).
          *
          *     FR-006: no seller contact info (email/phone) — only `seller_display_name`.
+         *
+         *     `seller_member_since`/`seller_active_listings_count` (frontend Phase 2,
+         *     "seller trust presentation") and `seller_other_listings` (frontend P1B,
+         *     "more from this seller") are populated ONLY by `GET /listings/{id}`
+         *     (single-listing detail) — `to_public()`, which every OTHER endpoint that
+         *     returns `ListingPublic` also goes through (browse, My Listings, create,
+         *     update, mark-sold, admin list), leaves all three `None`. That split is
+         *     deliberate, not an oversight: computing them requires extra queries
+         *     (a `User` lookup, an aggregate `COUNT`, a small bounded listing query)
+         *     that are free for a single detail page but would be an N+1 query
+         *     pattern on a page of up to 50 browse/admin results. See
+         *     `router.get_listing` for where they're actually filled in.
+         *
+         *     `seller_other_listings` entries are themselves `ListingPublic` values,
+         *     but never carry a nested `seller_other_listings` of their own (each is
+         *     built directly, not by re-calling the detail endpoint's logic) — this
+         *     is a one-level preview, not a recursive one.
          */
         ListingPublic: {
             /**
@@ -530,6 +574,12 @@ export interface components {
             updated_at: string;
             /** Images */
             images: components["schemas"]["ListingImagePublic"][];
+            /** Seller Member Since */
+            seller_member_since?: string | null;
+            /** Seller Active Listings Count */
+            seller_active_listings_count?: number | null;
+            /** Seller Other Listings */
+            seller_other_listings?: components["schemas"]["ListingPublic"][] | null;
         };
         /**
          * ListingStatusEnum

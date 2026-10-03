@@ -58,7 +58,7 @@ export function LoginPage(): React.JSX.Element {
 
   return (
     <AuthShell>
-      <h1 className="font-serif text-2xl font-semibold text-ink">Welcome back</h1>
+      <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">Welcome back</h1>
       <p className="mt-1 text-sm text-ink-muted">Log in to manage your listings.</p>
       <form className="mt-6 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <Input

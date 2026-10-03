@@ -20,11 +20,11 @@ export function ChangePasswordPage(): React.JSX.Element {
 
   return (
     <div className="mx-auto max-w-sm">
-      <Card padding="lg">
-        <span className="flex size-11 items-center justify-center rounded-full bg-moss-50 text-moss-600">
+      <Card padding="lg" tone="muted" className="animate-fade-up">
+        <span className="flex size-11 items-center justify-center rounded-full bg-moss-50 text-moss-600 shadow-card">
           <KeyRound aria-hidden="true" className="size-5" />
         </span>
-        <h1 className="mt-4 font-serif text-xl font-semibold text-ink">Change your password</h1>
+        <h1 className="mt-4 font-serif text-2xl font-semibold text-ink">Change your password</h1>
         <p className="mt-2 text-sm text-ink-muted">
           An administrator reset your password. Enter the temporary password you were given, then
           choose a new one, before continuing.

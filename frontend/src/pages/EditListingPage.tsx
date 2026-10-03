@@ -70,7 +70,7 @@ export function EditListingPage(): React.JSX.Element {
       )}
       {listing && isOwner && listing.status !== "available" && (
         <div className="mx-auto max-w-lg">
-          <Card>
+          <Card elevated={false}>
             <p className="text-sm text-ink">
               This listing is {listing.status} and can no longer be edited.
             </p>
@@ -86,7 +86,7 @@ export function EditListingPage(): React.JSX.Element {
       {listing && isOwner && listing.status === "available" && (
         <div className="mx-auto flex max-w-2xl flex-col gap-6">
           <PageHeader title="Edit listing" description="Keep your listing accurate and up to date." />
-          <Card padding="lg">
+          <Card padding="lg" elevated={false} className="animate-fade-up">
             <ListingForm
               initialValues={{
                 title: listing.title,
