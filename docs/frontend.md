@@ -44,13 +44,21 @@ One deliberate pattern worth calling out: hooks whose target doesn't exist yet a
 
 ## Component library (`src/components/`)
 
-`Button`, `Input`, `Select`, `Modal`, `Card`, `Badge` — the shared, reused-everywhere primitives. Every form input associates its label via `htmlFor`/`id` (never placeholder-as-label) and links its error message via `aria-describedby` plus `role="alert"` (never color alone). `Modal` implements a manual focus trap (captures the previously-focused element on open, cycles `Tab`/`Shift+Tab` between the first and last focusable descendants, restores focus on close) and closes on `Escape`.
+**Primitives** — `Button` (plus `buttonClasses()`, so a navigating `<Link>` can look like a button while staying a link), `Input`, `Select`, `Badge`, `Skeleton`, and `Modal`. Every form input associates its label via `htmlFor`/`id` (never placeholder-as-label) and links its error message via `aria-describedby` plus `role="alert"` (never color alone). `Modal` implements a manual focus trap (captures the previously-focused element on open, cycles `Tab`/`Shift+Tab` between the first and last focusable descendants, restores focus on close) and closes on `Escape`. It has two variants: `dialog` (centred confirmation) and `sheet` (anchored to the bottom edge on phones, with a close button — used for Browse's mobile filters).
 
-Cross-page components layered on top of those primitives: `QueryState` (the one place loading/error/empty states are rendered, so every data-dependent view handles all three explicitly instead of each page reinventing a spinner), `ListingCard`, `Pagination`, `ListingForm` (shared by create and edit), `ImageUploadField`, `PasswordChangeForm` (shared by the self-service profile page and the forced-change page), `Layout` (the persistent nav + `<Outlet/>`), and `AdminNav` (the Users/Listings sub-nav for the admin section).
+**Book objects** — the visual centre of the app:
+
+- `BookCover` — every listing's cover, in a fixed 2:3 slot (`card`, `thumb`, or the larger `detail` frame). Photos are never cropped: they are contained, sized from their natural aspect ratio, and bottom-aligned so a row of covers shares one baseline. A photo stays hidden until it has loaded (no layout shift) and falls back to `NoCoverPlaceholder` if it fails.
+- `NoCoverPlaceholder` — the no-photo state: a plain cloth-board cover built from the listing's real title, author and category (one colour per category), always tagged "No photo" so it can't be mistaken for a photo of the copy.
+- `ListingCard` — a `BookCover` with title, author and price · condition beneath it; used by every listing grid. `ListingCardSkeleton`/`ListingGridSkeleton` (in `Skeleton`) match it exactly, and grids share their column layout through `lib/layout.ts`.
+
+**Page-level and cross-page components** — `QueryState` (the one place loading/error/empty states are rendered, so every data-dependent view handles all three explicitly), `EmptyState`, `PageHeader`, `Pagination`, `ListingForm` (shared by create and edit), `ImageUploadField`, `PasswordChangeForm` (shared by the profile page and the forced-change page), `AuthShell` (the single-column frame for login/registration), `Layout` (the persistent nav + `<Outlet/>` + `Footer`; on `/admin/*` routes the main nav's Admin item stays active and the footer is omitted), `AdminNav` (the Users/Listings sub-nav), and `AdminControls` (admin's compact row actions and segmented status filter). Admin tables switch to label/value cards below the `md` breakpoint via the `useMediaQuery` hook, so only one layout is ever in the DOM.
+
+The earlier generic `Card` and `StatStrip` components were removed in the redesign once nothing used them.
 
 ## Pages (`src/pages/`)
 
-One file per route, matching the resource model: `BrowsePage`, `ListingDetailPage`, `CreateListingPage`, `EditListingPage`, `MyListingsPage`, `ProfilePage`, `LoginPage`, `RegisterPage`, `ChangePasswordPage`, and `admin/AdminUsersPage` / `admin/AdminListingsPage`. Every confirmation-required destructive action (mark sold, delete, admin suspend/reset-password/remove-listing) is behind a `Modal`, never a single click.
+One file per route, matching the resource model: `HomePage`, `BrowsePage`, `ListingDetailPage`, `CreateListingPage`, `EditListingPage`, `MyListingsPage`, `ProfilePage`, `LoginPage`, `RegisterPage`, `ChangePasswordPage`, and `admin/AdminUsersPage` / `admin/AdminListingsPage`. Every confirmation-required destructive action (mark sold, delete, admin suspend/reset-password/remove-listing) is behind a `Modal`, never a single click.
 
 ## Routing (`App.tsx`)
 
@@ -67,6 +75,8 @@ flowchart LR
 ## Styling
 
 Tailwind CSS v4, via the `@tailwindcss/vite` plugin — no separate `postcss.config.js`/`tailwind.config.js` file is needed for this version. No ad hoc inline styles except where a value is genuinely dynamic and Tailwind can't express it statically.
+
+Design tokens live in `src/index.css` (`@theme`), and each colour has one role: `paper` for surfaces, `ink` for text (prices included), `moss` for interaction, `clay` for a listing's condition, `danger` for destructive actions and errors, and `cloth-*` for no-photo covers. Serif type (Source Serif 4) is for book information and page titles; everything operational is sans (Inter). Physical depth (`shadow-object`) belongs to book covers only. Motion is limited to arrivals, state changes and pointer feedback, and is gated behind `prefers-reduced-motion`. `src/test/contrast.test.ts` guards the text-colour tokens against WCAG AA.
 
 ## Type generation workflow
 
