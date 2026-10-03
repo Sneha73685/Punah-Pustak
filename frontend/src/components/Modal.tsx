@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
-import { X } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 
@@ -11,10 +10,12 @@ export interface ModalProps {
   /**
    * `dialog` (default): a centred confirmation dialog.
    * `sheet`: anchored to the bottom edge at full width on phones (a centred
-   * dialog from `sm` up), with a visible close button — for task panels
-   * like Browse's mobile filters rather than yes/no confirmations.
+   * dialog from `sm` up), with a visible Close button, for task panels
+   * like Browse's phone filters rather than yes/no confirmations.
+   * `lightbox`: the whole viewport in ink, for looking at a seller's photo
+   * at full size; the title becomes the top caption line.
    */
-  variant?: "dialog" | "sheet";
+  variant?: "dialog" | "sheet" | "lightbox";
 }
 
 const FOCUSABLE_SELECTOR =
@@ -23,18 +24,16 @@ const FOCUSABLE_SELECTOR =
 /**
  * FE-011 shared component, used everywhere FE-040 requires a confirmation
  * step for a destructive action (delete listing, mark sold, admin
- * suspend/remove/reset-password).
+ * suspend/remove/reset-password), for Browse's phone filter sheet, and for
+ * the listing photo lightbox.
  *
  * A11Y-004: traps focus while open and returns it to whatever triggered
- * the modal on close — implemented manually (capture `document.activeElement`
+ * the modal on close, implemented manually (capture `document.activeElement`
  * on open, restore it on close; a `keydown` handler cycles `Tab`/`Shift+Tab`
  * between the first and last focusable descendants) rather than via the
- * native `<dialog>` element, since `<dialog>`'s imperative
- * `showModal()`/`close()` API doesn't map cleanly onto a declarative
- * `isOpen` prop without its own effect-driven imperative calls anyway —
- * at that point a manual trap is no more code and is fully unit-testable
- * without jsdom's incomplete `<dialog>` support.
- * A11Y-006: `Escape` closes; no keyboard trap escape hatch is lost.
+ * native `<dialog>` element, whose imperative API doesn't map cleanly onto
+ * a declarative `isOpen` prop and isn't fully supported by jsdom.
+ * A11Y-006: `Escape` closes.
  */
 export function Modal({ isOpen, onClose, title, children, variant = "dialog" }: ModalProps): React.JSX.Element | null {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -85,10 +84,37 @@ export function Modal({ isOpen, onClose, title, children, variant = "dialog" }: 
     return null;
   }
 
+  if (variant === "lightbox") {
+    return (
+      <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="fixed inset-0 z-50 flex flex-col bg-ink text-ground focus:outline-none"
+      >
+        <div className="flex min-h-14 items-center justify-between gap-4 px-4 sm:px-6">
+          <h2 id={titleId} className="truncate font-mono text-13">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-11 items-center px-1 text-15 font-semibold underline-offset-4 hover:underline focus-visible:outline-ground"
+          >
+            Close
+          </button>
+        </div>
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        "fixed inset-0 z-50 flex justify-center bg-ink/50",
+        "fixed inset-0 z-50 flex justify-center bg-ink/45",
         variant === "sheet" ? "items-end sm:items-center sm:p-4" : "items-center p-4",
       )}
       onClick={onClose}
@@ -100,25 +126,24 @@ export function Modal({ isOpen, onClose, title, children, variant = "dialog" }: 
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          "w-full max-w-md border border-border bg-paper shadow-overlay focus:outline-none",
+          "w-full max-w-md border-t-2 border-ink bg-ground focus:outline-none",
           variant === "sheet"
-            ? "animate-sheet-in max-h-[85vh] overflow-y-auto rounded-t-xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-xl sm:p-6"
-            : "animate-scale-in rounded-xl p-6",
+            ? "animate-sheet-in max-h-[88vh] overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6"
+            : "animate-scale-in px-6 pb-6",
         )}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
-          <h2 id={titleId} className="text-lg font-semibold text-ink">
+        <div className="flex min-h-14 items-center justify-between gap-4 border-b border-ink">
+          <h2 id={titleId} className="py-3 text-17 font-bold text-ink">
             {title}
           </h2>
           {variant === "sheet" && (
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
-              className="-m-2 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-paper-muted hover:text-ink"
+              className="-mr-1 inline-flex min-h-11 shrink-0 items-center px-1 text-15 font-semibold text-ballpoint underline underline-offset-4"
             >
-              <X aria-hidden="true" className="size-5" />
+              Close
             </button>
           )}
         </div>

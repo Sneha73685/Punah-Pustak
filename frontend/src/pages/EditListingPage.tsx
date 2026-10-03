@@ -63,19 +63,19 @@ export function EditListingPage(): React.JSX.Element {
   return (
     <QueryState isLoading={query.isPending} error={query.error}>
       {listing && !isOwner && (
-        <p role="alert" className="text-sm font-medium text-danger-600">
+        <p role="alert" className="text-15 font-medium text-danger">
           You don&apos;t have permission to edit this listing.
         </p>
       )}
       {listing && isOwner && listing.status !== "available" && (
-        <div className="mx-auto max-w-lg">
-          <div className="border-y border-border py-6">
+        <div className="max-w-lg pt-8">
+          <div className="border-y border-ink py-6">
             <p className="text-base text-ink">
               This listing is {listing.status} and can no longer be edited.
             </p>
             <Link
               to={`/listings/${listing.id}`}
-              className="mt-2 inline-flex min-h-11 items-center font-medium text-moss-700 underline underline-offset-4"
+              className="mt-2 inline-flex min-h-11 items-center font-medium text-ballpoint underline underline-offset-4"
             >
               Back to listing
             </Link>
@@ -83,7 +83,7 @@ export function EditListingPage(): React.JSX.Element {
         </div>
       )}
       {listing && isOwner && listing.status === "available" && (
-        <div className="mx-auto flex max-w-2xl flex-col gap-6">
+        <div className="flex max-w-2xl flex-col gap-6">
           <PageHeader title="Edit listing" description="Keep your listing accurate and up to date." />
           <div className="pt-2">
             <ListingForm
@@ -107,7 +107,7 @@ export function EditListingPage(): React.JSX.Element {
                 error={serverFieldErrors.images}
               />
               {formError && (
-                <p role="alert" className="text-sm font-medium text-danger-600">
+                <p role="alert" className="text-15 font-medium text-danger">
                   {formError}
                 </p>
               )}

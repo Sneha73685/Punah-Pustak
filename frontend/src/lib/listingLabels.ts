@@ -52,3 +52,32 @@ export function formatPrice(price: string): string {
   const amount = Number.parseFloat(price);
   return Number.isNaN(amount) ? price : `$${amount.toFixed(2)}`;
 }
+
+/** The condition grades as a five-step scale (5 = New), for the
+ * `ConditionMeter`. Best first, which is also the order filters list them. */
+export const CONDITION_SCORE: Record<ListingCondition, number> = {
+  new: 5,
+  like_new: 4,
+  good: 3,
+  fair: 2,
+  poor: 1,
+};
+
+export const CONDITIONS_BEST_FIRST: ListingCondition[] = ["new", "like_new", "good", "fair", "poor"];
+
+/** "3 Oct 2026": the record-line date format. */
+export function formatDay(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** "March 2025": seller membership. */
+export function formatMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}
+
+/** Whether a seller's description says enough to quote on a listing card.
+ * Short notes ("Read once.") still appear in full on the detail page; a
+ * card only borrows the voice when there is something to hear. */
+export function isSubstantiveNote(description: string): boolean {
+  return description.trim().length >= 28;
+}

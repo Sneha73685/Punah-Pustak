@@ -45,7 +45,7 @@ test.describe("accessibility (WCAG 2.1 AA, axe-core)", () => {
       await page.goto("/listings");
       // With no search or filters applied, an empty result means an empty
       // marketplace, and the page says so rather than blaming filters.
-      await expect(page.getByText("The shelf is empty")).toBeVisible();
+      await expect(page.getByText("Nothing is listed yet")).toBeVisible();
       await expectNoAccessibilityViolations(page, testInfo, "browse-empty");
     });
 

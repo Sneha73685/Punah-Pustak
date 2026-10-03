@@ -2,81 +2,52 @@
 
 /* FE-010: Tailwind is the styling mechanism. This file pulls it in, defines
    Punah-Pustak's design tokens as Tailwind v4 `@theme` values (so e.g.
-   `bg-paper`, `text-ink`, `font-serif`, `shadow-object` become real utility
-   classes everywhere), and sets the handful of page-level defaults
-   Tailwind's preflight doesn't opinionatedly set for us (focus visibility,
-   base font, base surface). No component-specific CSS belongs here — that's
-   what the component library (src/components) and Tailwind utilities are
-   for. */
+   `bg-field`, `text-ink-2`, `font-mono` become real utility classes
+   everywhere), and sets the handful of page-level defaults Tailwind's
+   preflight doesn't set for us (focus visibility, base font, base
+   surface). No component-specific CSS belongs here. */
 
 @theme {
-  /* Colour roles (redesign): every token below has exactly one job.
-     - paper / paper-muted / paper-strong: the ground and its rare raised
-       surfaces (footer, skeletons, disabled fields).
-     - ink / ink-muted / ink-soft: all text, including prices — a price is
-       information, not an action.
-     - moss: interaction only — buttons, links, focus, active nav.
-     - clay: a listing's condition and other human/copy-specific notes.
-       Never errors, never destructive actions.
-     - danger: destructive actions and validation errors, a deeper brick
-       kept visibly apart from clay so "Poor" condition never reads as an
-       error state.
-     - cloth-*: the boards of typographic no-photo covers, one per real
-       category (see `NoCoverPlaceholder`). Paper-coloured type on every
-       board clears 4.5:1 (enforced in src/test/contrast.test.ts). */
-  --color-paper: #fbf7ef;
-  --color-paper-muted: #f2e9d8;
-  --color-paper-strong: #ece0c9;
-  --color-ink: #2a2420;
-  --color-ink-muted: #6b5f52;
-  /* WCAG AA fix: the original #948572 only cleared 2.97:1-3.59:1 against
-     this app's actual backgrounds — darkened to clear 4.5:1 against
-     paper-muted, its worst-case background (4.64:1). */
-  --color-ink-soft: #726658;
-  --color-border: #e4d9c3;
-  --color-border-strong: #d3c3a4;
+  /* "Copy Record" colour roles. Every token has exactly one job:
+     - ground: the page itself.
+     - field: the surface photographic evidence sits on (photo frames,
+       no-photo tiles, skeletons). `field-hover` is the same surface under
+       the pointer; it is the only hover state a listing has.
+     - ink / ink-2: all text. ink-2 is secondary text and must clear 4.5:1
+       on both ground and field (src/test/contrast.test.ts).
+     - rule: hairline separators that carry no meaning on their own.
+       rule-strong: structural lines and every input/control boundary
+       (WCAG 1.4.11 needs 3:1 against the ground).
+     - ballpoint: interaction (links, primary actions, focus) and human
+       marks (the seller's note). The only accent colour.
+     - danger: destructive actions and errors, nothing else. */
+  --color-ground: #f5f3ef;
+  --color-field: #e4e0d8;
+  --color-field-hover: #d9d4ca;
+  --color-ink: #1b1a18;
+  --color-ink-2: #5c5852;
+  --color-rule: #d2cdc4;
+  --color-rule-strong: #8c877e;
+  --color-ballpoint: #2438b8;
+  --color-ballpoint-deep: #1b2c94;
+  --color-danger: #a8261b;
 
-  --color-moss-50: #eef3ee;
-  --color-moss-100: #dbe8db;
-  --color-moss-400: #4f7c62;
-  --color-moss-500: #3f6b52;
-  --color-moss-600: #345a44;
-  --color-moss-700: #2a4837;
+  --font-sans: "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  --color-clay-50: #f7ebe4;
-  --color-clay-600: #9c4630;
-
-  --color-danger-50: #f7e6e2;
-  --color-danger-600: #9b2c1f;
-  --color-danger-700: #7f2318;
-
-  --color-cloth-fiction: #7a4536;
-  --color-cloth-non-fiction: #3f5260;
-  --color-cloth-academic: #2f4058;
-  --color-cloth-children: #7d5f28;
-  --color-cloth-comics: #664259;
-  --color-cloth-other: #5a5249;
-
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-serif: "Source Serif 4", ui-serif, Georgia, "Times New Roman", serif;
-
-  /* Type scale anchors that Tailwind's defaults don't already hit exactly:
-     a book title on a card (17px) and the 32/56px H1/display steps. */
-  --text-book: 1.0625rem;
-  --text-book--line-height: 1.35;
-  --text-h1: 2rem;
-  --text-h1--line-height: 1.15;
-  --text-display: 3.5rem;
-  --text-display--line-height: 1.05;
-
-  /* Depth belongs to books, not to UI. `object` is the resting contact
-     shadow of a cover (photo or typographic board); `object-hover` is the
-     same object lifted ~2px. `overlay` is reserved for modals/sheets that
-     genuinely float above the page. There is deliberately no card/panel
-     shadow. */
-  --shadow-object: 0 1px 1px rgba(42, 36, 32, 0.12), 0 6px 12px -6px rgba(42, 36, 32, 0.28);
-  --shadow-object-hover: 0 1px 1px rgba(42, 36, 32, 0.12), 0 12px 18px -8px rgba(42, 36, 32, 0.32);
-  --shadow-overlay: 0 24px 48px -16px rgba(42, 36, 32, 0.28), 0 4px 12px -4px rgba(42, 36, 32, 0.1);
+  /* The type scale: 13 / 15 / 17 / 22 / 30 / 44. */
+  --text-13: 0.8125rem;
+  --text-13--line-height: 1.4;
+  --text-15: 0.9375rem;
+  --text-15--line-height: 1.45;
+  --text-17: 1.0625rem;
+  --text-17--line-height: 1.45;
+  --text-22: 1.375rem;
+  --text-22--line-height: 1.25;
+  --text-30: 1.875rem;
+  --text-30--line-height: 1.12;
+  --text-44: 2.75rem;
+  --text-44--line-height: 1.05;
 }
 
 :root {
@@ -84,75 +55,44 @@
 }
 
 body {
-  @apply bg-paper text-ink antialiased;
-  position: relative;
+  @apply bg-ground text-ink antialiased;
   font-family: var(--font-sans);
 }
 
-/* A distinctive, near-invisible paper grain across the whole app — the one
-   textural signature tying every surface back to "second-hand paper"
-   rather than a flat digital fill. Fixed + z-index:-1 so it never sits
-   above content or intercepts pointer events, and its opacity (~3%) is
-   low enough it can't move any text's contrast below AA. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* Serif is for books and page titles; everything operational (nav,
-   controls, tables, admin, section labels) stays in the sans. Only `h1`
-   defaults to serif — lower headings opt in explicitly where they name
-   a book or an editorial section. */
-h1 {
-  font-family: var(--font-serif);
+/* Prices, counts and dates line up in columns wherever they appear. */
+.tnum {
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 /* A11Y-004/A11Y-006: a visible focus ring is non-negotiable for keyboard
-   operability — Tailwind's preflight resets outline styles, so it must be
-   explicitly restored rather than left to browser defaults (which some
-   browsers suppress on mouse-focus in ways that also suppress keyboard
-   focus). Uses the brand accent rather than browser-default blue. */
-:focus-visible {
-  @apply outline outline-2 outline-offset-2;
-  outline-color: var(--color-moss-500);
+   operability. Tailwind's preflight resets outline styles, so it is
+   restored here, in the one interaction colour. In the base layer, so a
+   component's own focus utilities can refine it. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-ballpoint);
+    outline-offset: 2px;
+  }
 }
 
-/* Skeleton shimmer sweep — outside the reduced-motion block below because
-   `Skeleton` turns it off itself with Tailwind's `motion-reduce:` variant.
-   1.2s reads as "actively loading" rather than decorative. */
+/* Skeleton shimmer sweep. Outside the reduced-motion block below because
+   `Skeleton` turns it off itself with Tailwind's `motion-reduce:`. */
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
   }
 }
 
-/* ---- Motion system -----------------------------------------------------
-   Motion exists only where it says something: an arrival (the homepage
-   shelf), a state change (menu, dialog, sheet opening), or a response to
-   the pointer (cover lift, button press — those two live in their
-   components behind `motion-safe:`). Nothing loops, nothing floats, and
-   sections don't fade in as they scroll.
-
-   Everything here is gated behind `prefers-reduced-motion: no-preference`:
-   with reduced motion (or no support for the query) elements render in
-   their final state, never a stuck mid-transition frame.
-
-   All of it is transform-only. These classes sit on text-bearing elements,
-   and an opacity ramp would put that text below 4.5:1 contrast for the
-   length of the animation (axe-core caught exactly that once) — opacity
-   is also subtree-multiplicative, so a fading ancestor would drag its
-   descendants' text down with it. The modal backdrop appears instantly
-   for the same reason. */
+/* ---- Motion -------------------------------------------------------------
+   Almost none. State changes (dialog, sheet, menu) and the photo crossfade
+   only: nothing arrives, floats, staggers or lifts. All of it is gated
+   behind `prefers-reduced-motion: no-preference`, and all of it is
+   transform-only on text-bearing elements (an opacity ramp would drop text
+   below 4.5:1 for the length of the animation). */
 @media (prefers-reduced-motion: no-preference) {
-  /* Confirmation dialog appearing in place. */
   @keyframes scale-in {
     from {
-      transform: scale(0.96) translateY(4px);
+      transform: scale(0.98) translateY(4px);
     }
     to {
       transform: scale(1) translateY(0);
@@ -160,10 +100,9 @@ h1 {
   }
 
   .animate-scale-in {
-    animation: scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: scale-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  /* Phone filter sheet rising from the bottom edge it's anchored to. */
   @keyframes sheet-in {
     from {
       transform: translateY(24px);
@@ -174,11 +113,9 @@ h1 {
   }
 
   .animate-sheet-in {
-    animation: sheet-in 0.24s cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation: sheet-in 0.18s cubic-bezier(0.23, 1, 0.32, 1) both;
   }
 
-  /* The mobile nav panel — small and fast, since it may be opened and
-     closed many times in one visit. */
   @keyframes menu-in {
     from {
       transform: translateY(-6px);
@@ -189,21 +126,21 @@ h1 {
   }
 
   .animate-menu-in {
-    animation: menu-in 0.18s cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation: menu-in 0.14s cubic-bezier(0.23, 1, 0.32, 1) both;
   }
 
-  /* The one arrival on the site: homepage books settling onto the shelf,
-     staggered per book by the caller. */
-  @keyframes shelf-in {
+  /* A photo revealed once loaded, or swapped in the stage. Images carry no
+     text, so opacity is safe here. */
+  @keyframes photo-in {
     from {
-      transform: translateY(8px);
+      opacity: 0;
     }
     to {
-      transform: translateY(0);
+      opacity: 1;
     }
   }
 
-  .animate-shelf-in {
-    animation: shelf-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  .animate-photo-in {
+    animation: photo-in 0.16s linear both;
   }
 }

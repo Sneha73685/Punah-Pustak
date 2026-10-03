@@ -4,6 +4,8 @@ import type { LucideProps } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export interface EmptyStateProps {
+  /** Kept for API compatibility; the Copy Record system states empty
+   * results in words, so no icon is drawn. */
   icon?: ComponentType<LucideProps>;
   title: string;
   description?: string;
@@ -12,24 +14,14 @@ export interface EmptyStateProps {
 }
 
 /**
- * FE-011 shared component: the richer replacement for a bare "Nothing to
- * show yet." line, used wherever an empty result set is itself part of the
- * expected experience (an empty marketplace on day one, a seller with no
- * listings yet) rather than a dead end — pairs an icon, a human title/
- * description, and an optional call-to-action.
+ * FE-011 shared component: an empty result stated plainly under a rule,
+ * with the one way forward (when there is one) beneath it.
  */
-export function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  action,
-  className,
-}: EmptyStateProps): React.JSX.Element {
+export function EmptyState({ title, description, action, className }: EmptyStateProps): React.JSX.Element {
   return (
-    <div className={cn("flex flex-col items-start gap-2 border-y border-border py-10", className)}>
-      {Icon && <Icon aria-hidden="true" className="mb-1 size-6 text-ink-soft" />}
-      <h2 className="font-serif text-2xl font-semibold text-ink">{title}</h2>
-      {description && <p className="max-w-md text-base leading-relaxed text-ink-muted">{description}</p>}
+    <div className={cn("flex flex-col items-start gap-2 border-t border-ink py-8", className)}>
+      <h2 className="text-22 font-bold tracking-[-0.01em] text-ink">{title}</h2>
+      {description && <p className="max-w-md text-15 text-ink-2">{description}</p>}
       {action && <div className="mt-3">{action}</div>}
     </div>
   );

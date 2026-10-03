@@ -1,309 +1,271 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Search } from "lucide-react";
 
-import { BookCover } from "@/components/BookCover";
-import { Button, buttonClasses } from "@/components/Button";
-import { Input } from "@/components/Input";
+import { buttonClasses } from "@/components/Button";
+import { ConditionMeter } from "@/components/ConditionMeter";
 import { ListingCard } from "@/components/ListingCard";
+import { PhotoFrame } from "@/components/PhotoFrame";
 import { QueryState } from "@/components/QueryState";
-import { ListingGridSkeleton, Skeleton } from "@/components/Skeleton";
+import { ListingGridSkeleton } from "@/components/Skeleton";
 import { useBrowseListings } from "@/hooks/useListings";
 import { cn } from "@/lib/cn";
-import { CATEGORY_LABELS, formatPrice } from "@/lib/listingLabels";
+import { HOME_GRID_CLASSES } from "@/lib/layout";
+import { CATEGORY_LABELS, formatDay, formatPrice } from "@/lib/listingLabels";
+import type { BrowseFilters } from "@/api/listings";
 import type { ListingCategory, ListingPublic } from "@/api/types";
 
-/** Newest listings, fetched once for both the hero shelf and "Just listed". */
-const FETCH_COUNT = 20;
-const SHELF_MAX = 5;
-/** Fewer than this many books would leave the hero shelf looking like an
- * orphan rather than a shelf, so it isn't shown at all below it. */
-const SHELF_MIN = 3;
-const JUST_LISTED_MAX = 8;
-const STAGGER_MS = 60;
+const JUST_IN_COUNT = 10;
 
-/** Home's grid tops out at 4 columns (2 rows of 4 on large screens) rather
- * than the browse grid's 5, so eight books always fill whole rows. */
-const HOME_GRID_CLASSES =
-  "grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4";
-
-/** Cloth swatches shared with the no-photo covers, so a category's colour
- * means the same thing here as on its photo-less books. */
-const CATEGORY_SPINE: Record<ListingCategory, string> = {
-  fiction: "bg-cloth-fiction",
-  non_fiction: "bg-cloth-non-fiction",
-  academic_textbook: "bg-cloth-academic",
-  children: "bg-cloth-children",
-  comics_graphic_novels: "bg-cloth-comics",
-  other: "bg-cloth-other",
+/** Per-position visibility for "Just in" (see the grid below). */
+const JUST_IN_VISIBILITY: Record<number, string> = {
+  6: "hidden sm:block",
+  7: "hidden sm:block",
+  8: "hidden sm:block lg:hidden xl:block",
+  9: "hidden xl:block",
 };
+const LIST_COUNT = 5;
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as ListingCategory[];
 
-const HOW_IT_WORKS = [
-  { title: "List it", description: "Add the title, author and condition, a photo if you have one, and your price." },
-  { title: "Find it", description: "Search by title or author, then narrow by category, condition and price." },
-  {
-    title: "Hand it over",
-    description: "Exchanges happen between readers, off the site. Punah-Pustak doesn't handle payments or delivery.",
-  },
-];
-
-/** Prefers listings with a real photo for the hero shelf, then fills any
- * remaining places with photo-less ones (shown as typographic covers). */
-function pickShelf(items: ListingPublic[]): ListingPublic[] {
-  const withPhoto = items.filter((item) => item.images.length > 0);
-  const withoutPhoto = items.filter((item) => item.images.length === 0);
-  return [...withPhoto, ...withoutPhoto].slice(0, SHELF_MAX);
+/** Each list on the home page is a real browse query, and its "All" link
+ * opens Browse with exactly that query. Nothing is curated or ranked. */
+interface IndexList {
+  id: string;
+  title: string;
+  /** The query, in words, under the heading. */
+  query: string;
+  filters: BrowseFilters;
+  href: string;
 }
 
+const INDEX_LISTS: IndexList[] = [
+  { id: "under-5", title: "Under $5", query: "price under $5", filters: { maxPrice: 4.99 }, href: "/listings?max_price=4.99" },
+  { id: "barely-read", title: "Barely read", query: "condition: like new", filters: { condition: "like_new" }, href: "/listings?condition=like_new" },
+  { id: "textbooks", title: "Textbooks", query: "category: academic textbook", filters: { category: "academic_textbook" }, href: "/listings?category=academic_textbook" },
+];
+
 /**
- * The homepage answers three questions in order: what this is (headline,
- * one line, search), what's here right now (the newest books — real
- * inventory, never a placeholder), and how it works. Everything shown is
- * read from the listings API; nothing is featured, ranked or counted that
- * the data doesn't support.
+ * The homepage is the catalogue's front page, not a landing page: one line
+ * saying what this is, the search field as the main object, and then the
+ * newest copies themselves as the visual opening. Below them, three ruled
+ * lists that are each a real query, the categories as a plain index, and
+ * the one band that asks a reader to list a copy. Everything shown is read
+ * from the listings API; nothing is featured, ranked or counted that the
+ * API doesn't support.
  */
 export function HomePage(): React.JSX.Element {
   const navigate = useNavigate();
-  const [heroSearch, setHeroSearch] = useState("");
-  const query = useBrowseListings({ page: 1, pageSize: FETCH_COUNT });
+  const [search, setSearch] = useState("");
+  const query = useBrowseListings({ page: 1, pageSize: JUST_IN_COUNT });
 
+  const total = query.data?.total;
   const items = query.data?.items ?? [];
-  const shelf = items.length >= SHELF_MIN ? pickShelf(items) : [];
-  // Strictly the newest books, even if some also stand on the hero shelf:
-  // skipping those would quietly make "Just listed" not the newest.
-  const justListed = items.slice(0, JUST_LISTED_MAX);
-  const isEmpty = query.data?.items.length === 0;
+  const isEmpty = query.data !== undefined && items.length === 0;
 
-  function handleHeroSearch(event: FormEvent<HTMLFormElement>): void {
+  function handleSearch(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const trimmed = heroSearch.trim();
+    const trimmed = search.trim();
     navigate(trimmed ? `/listings?search=${encodeURIComponent(trimmed)}` : "/listings");
   }
 
   return (
-    <div className="flex flex-col gap-16 pb-4 sm:gap-24">
-      <section className="grid grid-cols-1 gap-10 pt-2 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-14 lg:pt-6">
-        <div className="flex flex-col gap-5">
-          <h1 className="max-w-[14ch] text-4xl font-semibold leading-[1.05] tracking-tight text-ink sm:text-5xl lg:text-display">
-            Give your books a second story.
-          </h1>
-          <p className="max-w-md text-lg leading-relaxed text-ink-muted">
-            Buy and sell second-hand books directly with other readers.
-          </p>
-          <form role="search" aria-label="Search books" onSubmit={handleHeroSearch} className="flex max-w-md gap-2">
-            <div className="flex-1">
-              <Input
-                label="Search books"
-                hideLabel
-                type="search"
-                icon={Search}
-                placeholder="Title or author"
-                value={heroSearch}
-                onChange={(e) => setHeroSearch(e.target.value)}
-              />
-            </div>
-            <Button type="submit">Search</Button>
-          </form>
-        </div>
-
-        <HeroShelf isLoading={query.isPending} shelf={shelf} isEmpty={isEmpty} hasError={Boolean(query.error)} />
+    <div className="flex flex-col">
+      <section className="pt-7 sm:pt-11">
+        <h1 className="text-[28px] font-bold leading-[1.08] tracking-[-0.03em] text-ink sm:text-[36px] lg:text-44">
+          Second-hand books, examined and passed on by readers.
+        </h1>
+        <form role="search" aria-label="Search books" onSubmit={handleSearch} className="mt-5 sm:mt-6">
+          <div className="flex rounded-xs border-2 border-ink bg-white focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ballpoint focus-within:[outline-style:solid]">
+            <label htmlFor="home-search" className="sr-only">
+              Search books
+            </label>
+            <input
+              id="home-search"
+              type="search"
+              placeholder="Title or author"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="h-[52px] min-w-0 flex-1 bg-transparent px-3.5 text-17 text-ink placeholder:text-ink-2 focus:outline-none sm:h-[60px] sm:px-5 sm:text-[20px]"
+            />
+            <button type="submit" className="bg-ink px-4 text-15 font-semibold text-ground hover:bg-black sm:px-7 sm:text-[16px]">
+              Search
+            </button>
+          </div>
+        </form>
+        <p className="tnum mt-3 min-h-5 font-mono text-13 text-ink-2">
+          {total !== undefined && total > 0 && (
+            <>
+              {total} {total === 1 ? "copy" : "copies"} on offer · newest listed {formatDay(items[0].created_at)}
+            </>
+          )}
+        </p>
       </section>
 
-      {/* On an empty marketplace the hero already says so; a second empty
-          section here would only repeat it. */}
-      {!isEmpty && (
-        <section aria-labelledby="just-listed-heading" className="flex flex-col gap-6">
-          <div className="flex items-baseline justify-between gap-4 border-b border-border pb-3">
-            <h2 id="just-listed-heading" className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-              Just listed
-            </h2>
-            <Link
-              to="/listings"
-              className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-moss-700 underline-offset-4 hover:underline"
-            >
-              Browse all
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Link>
-          </div>
-          <QueryState
-            isLoading={query.isPending}
-            error={query.error}
-            loadingSkeleton={<ListingGridSkeleton count={8} gridClassName={HOME_GRID_CLASSES} />}
-          >
+      <section aria-labelledby="just-in-heading" className="mt-10 sm:mt-14">
+        <SectionHead
+          id="just-in-heading"
+          title="Just in"
+          link={isEmpty ? undefined : { to: "/listings", label: "Browse all" }}
+          query={total ? "newest first" : undefined}
+        />
+        <QueryState
+          isLoading={query.isPending}
+          error={query.error}
+          loadingSkeleton={<ListingGridSkeleton count={JUST_IN_COUNT} gridClassName={HOME_GRID_CLASSES} />}
+        >
+          {isEmpty ? (
+            <div className="flex flex-col gap-2 py-2">
+              <p className="text-22 font-bold text-ink">Nothing is listed yet.</p>
+              <Link to="/listings/new" className="w-fit text-15 font-medium text-ballpoint underline underline-offset-4">
+                List the first book
+              </Link>
+            </div>
+          ) : (
             <div className={HOME_GRID_CLASSES}>
-              {justListed.map((listing, index) => (
-                <div key={listing.id} className={cn(index >= 6 && "hidden lg:block")}>
+              {items.map((listing, index) => (
+                // Only whole rows: 6 copies in 2 columns, 9 in 3, 8 in 4,
+                // and all 10 in 5, so the grid never ends on an orphan.
+                <div key={listing.id} className={cn(JUST_IN_VISIBILITY[index])}>
                   <ListingCard listing={listing} />
                 </div>
               ))}
             </div>
-          </QueryState>
-        </section>
+          )}
+        </QueryState>
+      </section>
+
+      {!isEmpty && !query.error && (
+        <div className="mt-14 grid grid-cols-1 gap-y-12 sm:mt-16 md:grid-cols-2 md:gap-x-6 lg:grid-cols-3">
+          {INDEX_LISTS.map((list) => (
+            <IndexListSection key={list.id} list={list} />
+          ))}
+        </div>
       )}
 
-      <section aria-labelledby="categories-heading" className="flex flex-col gap-6">
-        <h2 id="categories-heading" className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Browse by category
-        </h2>
-        <ul className="grid grid-cols-1 border-t border-border sm:grid-cols-2 lg:grid-cols-3 sm:gap-x-8">
+      <section aria-labelledby="categories-heading" className="mt-14 sm:mt-16">
+        <SectionHead id="categories-heading" title="By category" />
+        <ul className="grid grid-cols-1 gap-x-6 md:grid-cols-2 lg:grid-cols-3">
           {CATEGORIES.map((category) => (
-            <li key={category} className="border-b border-border">
+            <li key={category}>
               <Link
                 to={`/listings?category=${category}`}
-                className="group flex min-h-14 items-center gap-4 py-3 text-ink transition-colors hover:text-moss-700"
+                className="flex min-h-12 items-center border-b border-rule py-3 text-17 font-semibold tracking-[-0.01em] text-ink hover:underline hover:underline-offset-4 sm:text-22"
               >
-                <span aria-hidden="true" className={cn("h-8 w-2 shrink-0 rounded-[1px]", CATEGORY_SPINE[category])} />
-                <span className="flex-1 font-serif text-lg">{CATEGORY_LABELS[category]}</span>
-                <ArrowRight
-                  aria-hidden="true"
-                  className="size-4 text-ink-soft transition-transform group-hover:text-moss-700 motion-safe:group-hover:translate-x-0.5"
-                />
+                {CATEGORY_LABELS[category]}
               </Link>
             </li>
           ))}
         </ul>
       </section>
 
-      <section aria-labelledby="how-heading" className="flex flex-col gap-6">
-        <h2 id="how-heading" className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          How it works
-        </h2>
-        <ol className="grid grid-cols-1 gap-6 border-t border-border pt-6 sm:grid-cols-3 sm:gap-8">
-          {HOW_IT_WORKS.map((step, index) => (
-            <li key={step.title} className="grid grid-cols-[2.5rem_1fr] gap-x-3 sm:block">
-              <span aria-hidden="true" className="font-serif text-2xl font-semibold text-moss-600 lining-nums">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <div className="sm:mt-2">
-                <h3 className="text-base font-semibold text-ink">{step.title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-ink-muted">{step.description}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
       <section
-        aria-labelledby="sell-heading"
-        className="flex flex-col gap-5 rounded-lg bg-paper-muted px-6 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-10"
+        aria-labelledby="list-a-copy-heading"
+        className="mt-16 grid grid-cols-1 gap-x-10 gap-y-3 border-t-[3px] border-ballpoint pt-6 sm:mt-20 md:grid-cols-[1fr_auto] md:items-center"
       >
         <div>
-          <h2 id="sell-heading" className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            Good books deserve another reader.
+          <h2 id="list-a-copy-heading" className="text-22 font-bold tracking-[-0.01em] text-ink">
+            Finished with a book?
           </h2>
-          <p className="mt-2 text-base text-ink-muted">Finished with a book? List it for the next person.</p>
+          <p className="mt-1 max-w-[70ch] text-15 text-ink-2">
+            Photograph your copy as it is, say what wear it has, and set a price. Exchange happens between you and the
+            buyer, off-site: Punah-Pustak doesn&apos;t handle payment or delivery.
+          </p>
         </div>
-        <Link to="/listings/new" className={buttonClasses("primary", "shrink-0 self-start sm:self-auto")}>
-          Sell a book
+        <Link to="/listings/new" className={buttonClasses("primary", "justify-self-start md:justify-self-end")}>
+          List a copy
         </Link>
       </section>
     </div>
   );
 }
 
-interface HeroShelfProps {
-  isLoading: boolean;
-  shelf: ListingPublic[];
-  isEmpty: boolean;
-  hasError: boolean;
+interface SectionHeadProps {
+  id: string;
+  title: string;
+  link?: { to: string; label: string };
+  query?: string;
 }
 
-/**
- * Up to five of the newest real books standing upright on one baseline
- * (four beside the headline on large screens, where five would shrink
- * each cover too far). Desktop/tablet: equal slots in a row, each cover at
- * its true shape,
- * bottoms aligned on a hairline. Phones: the same row as a horizontal
- * scroll-snap shelf showing two and a half books, so it's evident there's
- * more to swipe to. The books arrive once with a short stagger (transform
- * only, skipped under reduced motion).
- *
- * Shown only with at least `SHELF_MIN` books, so a near-empty marketplace
- * never gets a lone orphaned cover in the hero. Zero listings get an
- * honest empty-shelf line instead; an error or too few books leave this
- * space empty (the "Just listed" section below reports errors).
- */
-function HeroShelf({ isLoading, shelf, isEmpty, hasError }: HeroShelfProps): React.JSX.Element | null {
-  if (isLoading) {
-    // Same row, same slots, as the loaded shelf, so the books arriving
-    // don't push the rest of the page down.
-    return (
-      <ShelfRow label="Loading newest books">
-        {Array.from({ length: SHELF_MAX }, (_, index) => (
-          <ShelfSlot key={index} index={index}>
-            <Skeleton className="aspect-[2/3] w-full rounded-xs" />
-          </ShelfSlot>
-        ))}
-      </ShelfRow>
-    );
-  }
-  if (isEmpty) {
-    return (
-      <div className="flex flex-col gap-2 border-b border-border-strong pb-6 lg:pb-8">
-        <p className="font-serif text-2xl text-ink">The shelf is empty.</p>
-        <Link to="/listings/new" className="w-fit font-medium text-moss-700 underline underline-offset-4 hover:text-moss-600">
-          List the first book
+/** A section opens on a full-width ink rule: the heading, its link, and
+ * the query it shows in small record type. */
+function SectionHead({ id, title, link, query }: SectionHeadProps): React.JSX.Element {
+  return (
+    <div className="mb-5 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-ink pt-3.5 sm:mb-6">
+      <h2 id={id} className="text-[19px] font-bold tracking-[-0.015em] text-ink sm:text-22">
+        {title}
+      </h2>
+      {link && (
+        <Link to={link.to} className="inline-flex min-h-11 items-center text-15 font-medium text-ballpoint underline decoration-1 underline-offset-[3px] hover:decoration-2 sm:min-h-0">
+          {link.label}
         </Link>
-      </div>
-    );
-  }
-  if (hasError || shelf.length === 0) {
-    return null;
-  }
-
-  return (
-    <ShelfRow label="Newest books">
-      {shelf.map((listing, index) => (
-        <ShelfSlot key={listing.id} index={index} className="animate-shelf-in" style={{ animationDelay: `${index * STAGGER_MS}ms` }}>
-          <Link
-            to={`/listings/${listing.id}`}
-            aria-label={`${listing.title} by ${listing.author}, ${formatPrice(listing.price)}`}
-            className="group block"
-          >
-            <BookCover
-              size="card"
-              interactive
-              title={listing.title}
-              author={listing.author}
-              category={listing.category}
-              image={listing.images[0] ? { url: listing.images[0].url, alt: "" } : undefined}
-            />
-          </Link>
-        </ShelfSlot>
-      ))}
-    </ShelfRow>
-  );
-}
-
-function ShelfRow({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
-  return (
-    <div className="-mx-4 sm:mx-0">
-      <ul
-        aria-label={label}
-        className="flex snap-x snap-mandatory items-end gap-3 overflow-x-auto px-4 pb-px sm:grid sm:grid-cols-5 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4"
-      >
-        {children}
-      </ul>
-      <div aria-hidden="true" className="mx-4 border-b border-border-strong sm:mx-0" />
+      )}
+      {query && <span className="tnum basis-full font-mono text-13 text-ink-2 sm:basis-auto">{query}</span>}
     </div>
   );
 }
 
-function ShelfSlot({
-  index,
-  className,
-  style,
-  children,
-}: {
-  index: number;
-  className?: string;
-  style?: React.CSSProperties;
-  children: React.ReactNode;
-}): React.JSX.Element {
+/** A query-backed list: up to five compact records under a ruled head.
+ * Hidden entirely when the query is empty or fails (the "Just in" section
+ * above already reports a failing catalogue), so the page never shows an
+ * empty heading. */
+function IndexListSection({ list }: { list: IndexList }): React.JSX.Element | null {
+  const query = useBrowseListings({ ...list.filters, page: 1, pageSize: LIST_COUNT });
+  const items = query.data?.items ?? [];
+  if (query.isPending || query.error || items.length === 0) {
+    return null;
+  }
+  const headingId = `${list.id}-heading`;
   return (
-    <li className={cn("w-[38%] shrink-0 snap-start sm:w-auto", index === SHELF_MAX - 1 && "lg:hidden", className)} style={style}>
-      {children}
-    </li>
+    <section aria-labelledby={headingId}>
+      <div className="mb-4 flex flex-wrap items-baseline gap-x-4 border-t border-ink pt-3.5">
+        <h2 id={headingId} className="flex-1 text-[19px] font-bold tracking-[-0.015em] text-ink sm:text-22">
+          {list.title}
+        </h2>
+        <Link
+          to={list.href}
+          aria-label={`All ${query.data!.total} ${list.title.toLowerCase()}`}
+          className="tnum inline-flex min-h-11 items-center text-15 font-medium text-ballpoint underline decoration-1 underline-offset-[3px] hover:decoration-2 sm:min-h-0"
+        >
+          All {query.data!.total}
+        </Link>
+        <span className="basis-full font-mono text-13 text-ink-2">{list.query}</span>
+      </div>
+      <ol>
+        {items.map((listing) => (
+          <li key={listing.id}>
+            <IndexRow listing={listing} />
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function IndexRow({ listing }: { listing: ListingPublic }): React.JSX.Element {
+  const firstImage = listing.images[0];
+  return (
+    <Link
+      to={`/listings/${listing.id}`}
+      className="group relative grid grid-cols-[72px_minmax(0,1fr)] gap-3.5 border-b border-rule py-3 sm:grid-cols-[88px_minmax(0,1fr)]"
+    >
+      <PhotoFrame
+        variant="thumb"
+        announceNoPhoto={false}
+        title={listing.title}
+        author={listing.author}
+        image={firstImage ? { url: firstImage.url, alt: "" } : undefined}
+      />
+      <span className="flex min-w-0 flex-col">
+        <span className="line-clamp-2 text-15 font-semibold leading-snug text-ink [overflow-wrap:anywhere] decoration-1 underline-offset-[3px] group-hover:underline">
+          {listing.title}
+        </span>
+        <span className="truncate text-13 text-ink-2">{listing.author}</span>
+        <span className="mt-1.5 flex items-center justify-between gap-2">
+          <span className="text-15 font-bold text-ink">{formatPrice(listing.price)}</span>
+          <ConditionMeter condition={listing.condition} />
+        </span>
+        {!firstImage && <span className="sr-only">, no photo yet</span>}
+        <span className="sr-only">, from {listing.seller_display_name}</span>
+      </span>
+    </Link>
   );
 }

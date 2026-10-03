@@ -56,9 +56,9 @@ export function CreateListingPage(): React.JSX.Element {
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-6">
       <PageHeader
-        title="List a book"
+        title="List a copy"
         description="A few details now, and it's live on Punah-Pustak for other readers to find."
       />
       <div className="pt-2">
@@ -76,13 +76,13 @@ export function CreateListingPage(): React.JSX.Element {
             error={serverFieldErrors.images}
           />
           {createdListingId && (
-            <p className="text-sm text-ink-muted">
+            <p className="text-15 text-ink-2">
               Your listing was saved. Fix the image issue below and submit again to finish adding
               photos, or come back to it later from My Listings.
             </p>
           )}
           {formError && (
-            <p role="alert" className="text-sm font-medium text-danger-600">
+            <p role="alert" className="text-15 font-medium text-danger">
               {formError}
             </p>
           )}

@@ -1,84 +1,96 @@
 import { Link } from "react-router-dom";
 
-import { Badge } from "@/components/Badge";
-import { BookCover } from "@/components/BookCover";
-import { CONDITION_LABELS, formatPrice, STATUS_LABELS, STATUS_TONES } from "@/lib/listingLabels";
+import { ConditionMeter } from "@/components/ConditionMeter";
+import { PhotoFrame } from "@/components/PhotoFrame";
+import { cn } from "@/lib/cn";
+import { formatPrice, isSubstantiveNote, STATUS_LABELS } from "@/lib/listingLabels";
 import type { ListingPublic } from "@/api/types";
 
 export interface ListingCardProps {
   listing: ListingPublic;
-  /** Owner/admin contexts only — public browse never shows status (FR-026). */
+  /** Owner/admin contexts only. Public browse never shows status (FR-026). */
   showStatus?: boolean;
+  /** Off where the seller is already named above ("More from Meera"). */
+  showSeller?: boolean;
+  /** Quote the seller's note on wide screens when it says something. */
+  showNote?: boolean;
+  /** `compact` is the smaller type used in rails of six. */
+  density?: "regular" | "compact";
 }
 
 /**
- * A listing as a book on a shelf with a catalogue line beneath it — not a
- * boxed product tile. The cover (`BookCover`) is the only object with
- * depth; everything below it sits directly on the page:
+ * A listing as a catalogue record, not a product card: no box, no shadow,
+ * no lift. The photo field is the only surface; everything else sits on
+ * the page in the order a buyer evaluates a used copy:
  *
- *   title   — serif, at most two lines
- *   author  — serif italic, one line
- *   price · condition
+ *   photo (evidence)
+ *   title, author                 (what book)
+ *   price            ●●●○○ Good   (what it costs, what state it's in)
+ *   from <seller>                 (who is passing it on)
+ *   "seller's note"               (what they said, in ballpoint)
  *
- * Seller and category live on the detail page and in Browse's filters, not
- * here: on a card they were two extra lines competing with the two facts a
- * shopper actually scans for. Price is ink (information); only the title's
- * hover state uses moss (interaction). Condition is clay, its one role.
+ * The title/author block always reserves two title lines plus the author
+ * line, so every price rule in a grid row lands on the same line.
+ * Hover darkens the field and underlines the title; nothing moves.
  *
- * FE-051: image `alt` is the listing's title/author — never a filename.
+ * FE-051: image `alt` is the listing's title/author, never a filename.
  */
 export function ListingCard({
   listing,
   showStatus = false,
+  showSeller = true,
+  showNote = true,
+  density = "regular",
 }: ListingCardProps): React.JSX.Element {
   const firstImage = listing.images[0];
   const isInactive = listing.status !== "available";
+  const note = listing.description.trim();
+  const compact = density === "compact";
 
   return (
-    <Link
-      to={`/listings/${listing.id}`}
-      className="group flex h-full flex-col"
-    >
-      <BookCover
-        size="card"
-        interactive
+    <Link to={`/listings/${listing.id}`} className="group relative flex min-w-0 flex-col focus-visible:outline-offset-4">
+      <PhotoFrame
+        variant="grid"
         inactive={showStatus && isInactive}
         announceNoPhoto={false}
         title={listing.title}
         author={listing.author}
-        category={listing.category}
         image={firstImage ? { url: firstImage.url, alt: `${listing.title} by ${listing.author}` } : undefined}
       />
       <div className="flex flex-col pt-3">
-        {/* Reserves room for a two-line title plus the author (46 + 20px)
-            beneath them, rather than inside the title, so the author always
-            sits directly under the title while every price in a grid row
-            still lands on the same line. */}
-        <div className="min-h-[66px]">
-          <h3 className="line-clamp-2 font-serif text-book font-semibold text-ink transition-colors group-hover:text-moss-700">
+        <div className={compact ? "min-h-[63px]" : "min-h-[62px] sm:min-h-[67px]"}>
+          <h3
+            className={cn(
+              "line-clamp-2 font-semibold leading-[1.3] text-ink [overflow-wrap:anywhere] decoration-1 underline-offset-[3px] group-hover:underline",
+              compact ? "text-15" : "text-15 sm:text-[16px]",
+            )}
+          >
             {listing.title}
           </h3>
-          <p className="truncate font-serif text-sm italic text-ink-muted">{listing.author}</p>
+          <p className="truncate text-13 text-ink-2 sm:text-[14px]">{listing.author}</p>
         </div>
-        <p className="mt-1.5 flex items-baseline gap-1.5 text-sm">
-          <span className="font-serif text-base font-semibold text-ink lining-nums tabular-nums">
+        <p className="mt-2 flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1 border-t border-rule pt-2">
+          <span className={cn("font-bold tracking-[-0.01em] text-ink", compact ? "text-15 sm:text-[16px]" : "text-[16px] sm:text-[18px]")}>
             {formatPrice(listing.price)}
           </span>
-          <span aria-hidden="true" className="text-ink-soft">
-            &middot;
-          </span>
-          <span className="text-clay-600">
-            <span className="sr-only">Condition: </span>
-            {CONDITION_LABELS[listing.condition]}
-          </span>
-          {!firstImage && <span className="sr-only">, no photo</span>}
+          <ConditionMeter condition={listing.condition} />
         </p>
-        {showStatus && (
-          <span className="mt-2">
-            <Badge tone={STATUS_TONES[listing.status]} dot>
-              {STATUS_LABELS[listing.status]}
-            </Badge>
-          </span>
+        {!firstImage && <span className="sr-only">, no photo yet</span>}
+        {(showSeller || listing.images.length > 1) && (
+          <p className="mt-1.5 flex items-baseline justify-between gap-3 text-[12px] text-ink-2 sm:text-13">
+            <span className="truncate">{showSeller && `from ${listing.seller_display_name}`}</span>
+            {listing.images.length > 1 && (
+              <span className="shrink-0 font-mono text-[11px] sm:text-[12px]">{listing.images.length} photos</span>
+            )}
+          </p>
+        )}
+        {showNote && isSubstantiveNote(note) && (
+          <p className="mt-1.5 hidden border-l-2 border-ballpoint pl-2.5 text-[14px] italic leading-snug text-ballpoint xl:line-clamp-2">
+            &ldquo;{note}&rdquo;
+          </p>
+        )}
+        {showStatus && isInactive && (
+          <p className="mt-1.5 font-mono text-13 text-ink-2">{STATUS_LABELS[listing.status]}</p>
         )}
       </div>
     </Link>

@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 
 import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
+import { PageHeader } from "@/components/PageHeader";
 import { PasswordChangeForm } from "@/components/PasswordChangeForm";
 import { QueryState } from "@/components/QueryState";
 import { useMyListingsSummary } from "@/hooks/useListings";
@@ -30,8 +30,6 @@ export function ProfilePage(): React.JSX.Element | null {
     return null;
   }
 
-  const initial = state.user.display_name.trim().charAt(0).toUpperCase() || "?";
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setFieldErrors({});
@@ -49,41 +47,28 @@ export function ProfilePage(): React.JSX.Element | null {
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <span
-          aria-hidden="true"
-          className="flex size-14 shrink-0 items-center justify-center rounded-full bg-paper-muted font-serif text-2xl font-semibold text-ink"
-        >
-          {initial}
-        </span>
-        <div>
-          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-h1">
-            {state.user.display_name}
-          </h1>
-          <p className="text-sm text-ink-muted">{state.user.email}</p>
-        </div>
-      </div>
+    <div className="flex max-w-3xl flex-col">
+      <PageHeader title={state.user.display_name} description={state.user.email} />
 
-      <div className="flex flex-col divide-y divide-border border-t border-border">
-        <section className="flex flex-col gap-4 py-8">
-          <h2 className="text-base font-semibold text-ink">Account details</h2>
-          <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
-            <Input label="Email" value={state.user.email} disabled hint="Email cannot be changed." />
+      <div className="mt-6 flex flex-col">
+        <ProfileSection title="Account">
+          <form className="flex max-w-[400px] flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
+            <Input label="Email" value={state.user.email} disabled hint="Email can't be changed." />
             <Input
               label="Display name"
               required
+              hint="Shown to buyers on every copy you list."
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               error={fieldErrors.display_name}
             />
             {formError && (
-              <p role="alert" className="text-sm font-medium text-danger-600">
+              <p role="alert" className="text-15 font-medium text-danger">
                 {formError}
               </p>
             )}
             {saved && (
-              <p role="status" className="text-sm font-medium text-moss-700">
+              <p role="status" className="text-15 font-medium text-ink">
                 Saved.
               </p>
             )}
@@ -91,40 +76,58 @@ export function ProfilePage(): React.JSX.Element | null {
               Save changes
             </Button>
           </form>
-        </section>
+        </ProfileSection>
 
-        <section className="flex flex-col gap-3 py-8">
-          <h2 className="text-base font-semibold text-ink">Your listings</h2>
+        <ProfileSection title="Your copies">
           <QueryState isLoading={summaryQuery.isPending} error={summaryQuery.error}>
             {summaryQuery.data && (
-              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-ink">
-                <span className="lining-nums tabular-nums">
-                  {summaryQuery.data.available} available &middot; {summaryQuery.data.sold} sold
-                  {summaryQuery.data.deleted > 0 && <> &middot; {summaryQuery.data.deleted} removed</>}
-                </span>
+              <div>
+                <dl className="flex flex-wrap gap-x-10 gap-y-3">
+                  {[
+                    ["on offer", summaryQuery.data.available],
+                    ["sold", summaryQuery.data.sold],
+                    ["removed", summaryQuery.data.deleted],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex flex-col-reverse">
+                      <dt className="font-mono text-13 text-ink-2">{label}</dt>
+                      <dd className="tnum text-30 font-bold tracking-[-0.02em] text-ink">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
                 <Link
                   to="/my-listings"
-                  className="inline-flex min-h-11 items-center gap-1 font-medium text-moss-700 underline-offset-4 hover:underline"
+                  className="mt-4 inline-flex min-h-11 items-center text-15 font-medium text-ballpoint underline underline-offset-4"
                 >
                   Manage listings
-                  <ArrowRight aria-hidden="true" className="size-4" />
                 </Link>
-              </p>
+              </div>
             )}
           </QueryState>
-        </section>
+        </ProfileSection>
 
-        <section className="flex flex-col gap-4 py-8">
-          <h2 className="text-base font-semibold text-ink">Change password</h2>
+        <ProfileSection title="Password">
           {passwordChanged ? (
-            <p role="status" className="text-sm font-medium text-moss-700">
+            <p role="status" className="text-15 font-medium text-ink">
               Password changed.
             </p>
           ) : (
-            <PasswordChangeForm onSuccess={() => setPasswordChanged(true)} />
+            <div className="max-w-[400px]">
+              <PasswordChangeForm onSuccess={() => setPasswordChanged(true)} />
+            </div>
           )}
-        </section>
+        </ProfileSection>
       </div>
     </div>
+  );
+}
+
+/** One ruled section: its name in a narrow left column, its content beside
+ * it (stacked on phones). */
+function ProfileSection({ title, children }: { title: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <section className="grid grid-cols-1 gap-3 border-t border-ink pb-10 pt-4 md:grid-cols-[180px_minmax(0,1fr)] md:gap-6">
+      <h2 className="text-17 font-bold text-ink">{title}</h2>
+      <div>{children}</div>
+    </section>
   );
 }

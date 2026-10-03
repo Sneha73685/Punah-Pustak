@@ -1,43 +1,44 @@
-import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Pencil, PackageCheck, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthContext";
-import { Badge } from "@/components/Badge";
-import { BookCover } from "@/components/BookCover";
 import { Button } from "@/components/Button";
+import { ConditionMeter } from "@/components/ConditionMeter";
 import { ListingCard } from "@/components/ListingCard";
 import { Modal } from "@/components/Modal";
+import { PhotoFrame } from "@/components/PhotoFrame";
 import { getErrorMessage, QueryState } from "@/components/QueryState";
 import { ListingDetailSkeleton } from "@/components/Skeleton";
 import { useDeleteListing, useListing, useMarkListingSold } from "@/hooks/useListings";
+import { MD_UP, useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/cn";
-import { LISTING_GRID_CLASSES } from "@/lib/layout";
+import { RAIL_CLASSES } from "@/lib/layout";
 import {
   CATEGORY_LABELS,
   CONDITION_DESCRIPTIONS,
-  CONDITION_LABELS,
+  formatDay,
+  formatMonth,
   formatPrice,
   STATUS_LABELS,
-  STATUS_TONES,
 } from "@/lib/listingLabels";
+import type { ListingImagePublic, ListingPublic } from "@/api/types";
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
-}
+/** Titles longer than this step down a size so price and condition stay
+ * near the top of the record column. Nothing is truncated. */
+const LONG_TITLE = 80;
 
 /** FR-005/FR-006a, UC-3/UC-4/UC-5: full detail view, plus owner-only
  * mutating actions (edit/mark-sold/delete) gated on both ownership and
- * status client-side as a UX nicety — the API enforces both regardless
+ * status client-side as a UX nicety; the API enforces both regardless
  * (FR-024/FR-028).
  *
- * Laid out as a catalogue entry: the book on the left (sticky on large
- * screens, so it stays in view while the entry is read), and on the right,
- * in order, what a buyer decides on — title, author, price, condition and
- * what that grade means, who is selling it, what can be done next — then
- * the seller's description and the remaining facts. On phones the cover is
- * capped at half the viewport so title, price and condition land on the
- * first screen. */
+ * Laid out as an inspection of one physical copy: the seller's photos on
+ * the left as evidence, and beside them a sticky record in the order a
+ * buyer decides: title, author, price, condition and what that grade
+ * means, the seller's own note, who is passing it on, and what the site
+ * does and doesn't do. Then the record line, and the seller's other copies.
+ * On phones the photos come first as a swipeable strip, and title, price
+ * and condition land on the first screen. */
 export function ListingDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -47,7 +48,6 @@ export function ListingDetailPage(): React.JSX.Element {
   const deleteMutation = useDeleteListing(id ?? "");
   const [confirmingSold, setConfirmingSold] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [activeImage, setActiveImage] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const listing = query.data;
@@ -79,87 +79,78 @@ export function ListingDetailPage(): React.JSX.Element {
     <QueryState isLoading={query.isPending} error={query.error} loadingSkeleton={<ListingDetailSkeleton />}>
       {listing && (
         <>
-          <article className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
-            <div className="lg:col-span-5">
-              <div className="flex flex-col gap-4 lg:sticky lg:top-24">
-                <BookCover
-                  size="detail"
-                  title={listing.title}
-                  author={listing.author}
-                  category={listing.category}
-                  image={
-                    listing.images.length > 0
-                      ? {
-                          url: listing.images[activeImage]?.url ?? listing.images[0].url,
-                          alt: `${listing.title} by ${listing.author}`,
-                        }
-                      : undefined
-                  }
-                />
-                {listing.images.length > 1 && (
-                  <div className="flex justify-center gap-2 overflow-x-auto p-1">
-                    {listing.images.map((image, index) => (
-                      <button
-                        key={image.id}
-                        type="button"
-                        onClick={() => setActiveImage(index)}
-                        aria-label={`Show image ${index + 1} of ${listing.images.length}`}
-                        aria-current={index === activeImage}
-                        className={cn(
-                          "h-16 w-12 shrink-0 overflow-hidden rounded-xs ring-offset-2 ring-offset-paper transition-[box-shadow,opacity]",
-                          index === activeImage ? "ring-2 ring-moss-500" : "opacity-70 hover:opacity-100",
-                        )}
-                      >
-                        <img src={image.url} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+          <p className="hidden pb-5 pt-5 font-mono text-13 text-ink-2 md:block">
+            <Link to="/listings" className="underline underline-offset-2 hover:text-ink">
+              Browse
+            </Link>
+            {" / "}
+            <Link to={`/listings?category=${listing.category}`} className="underline underline-offset-2 hover:text-ink">
+              {CATEGORY_LABELS[listing.category]}
+            </Link>
+          </p>
 
-            <div className="flex flex-col lg:col-span-7">
-              {isOwner && (
-                <span className="mb-3">
-                  <Badge tone={STATUS_TONES[listing.status]} dot>
-                    Status: {STATUS_LABELS[listing.status]}
-                  </Badge>
-                </span>
+          <article className="grid grid-cols-1 items-start gap-x-8 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-x-14">
+            <Photos listing={listing} />
+
+            <div className="pt-4 md:sticky md:top-6 md:pt-0">
+              {isOwner ? (
+                <p className="mb-5 border-y border-ink py-2.5 text-15 font-semibold text-ink">
+                  Status: {STATUS_LABELS[listing.status]}
+                  {listing.status === "sold" && listing.sold_at && <> · {formatDay(listing.sold_at)}</>}
+                </p>
+              ) : (
+                listing.status === "sold" && (
+                  <p className="mb-5 border-y border-ink py-2.5 text-15 font-semibold text-ink">
+                    This copy has been sold{listing.sold_at && <> on {formatDay(listing.sold_at)}</>}.
+                  </p>
+                )
               )}
-              <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-h1">
+
+              <h1
+                className={cn(
+                  "font-bold text-ink [overflow-wrap:anywhere]",
+                  listing.title.length > LONG_TITLE
+                    ? "text-[21px] leading-[1.2] tracking-[-0.015em] sm:text-[26px]"
+                    : "text-[26px] leading-[1.1] tracking-[-0.025em] md:text-[30px] lg:text-[36px]",
+                )}
+              >
                 {listing.title}
               </h1>
-              <p className="mt-1.5 font-serif text-lg italic text-ink-muted">{listing.author}</p>
+              <p className="mt-1 text-[16px] text-ink-2 sm:mt-2 sm:text-[18px]">{listing.author}</p>
 
-              <p className="mt-5 font-serif text-[28px] font-semibold leading-none text-ink lining-nums tabular-nums">
-                {formatPrice(listing.price)}
-              </p>
-              <div className="mt-4">
-                <p className="text-base font-medium text-clay-600">
-                  <span className="text-ink-muted">Condition: </span>
-                  {CONDITION_LABELS[listing.condition]}
-                </p>
-                <p className="mt-0.5 text-sm text-ink-muted">{CONDITION_DESCRIPTIONS[listing.condition]}</p>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 sm:mt-6 md:block">
+                {listing.status === "available" ? (
+                  <p className="text-[28px] font-extrabold leading-none tracking-[-0.02em] text-ink lg:text-[36px]">
+                    {formatPrice(listing.price)}
+                  </p>
+                ) : (
+                  <p className="text-15 text-ink-2">
+                    Listed at <span className="text-22 font-semibold">{formatPrice(listing.price)}</span>
+                  </p>
+                )}
+                <ConditionMeter condition={listing.condition} size="lg" className="md:mt-5" />
               </div>
+              <p className="mt-2 max-w-[46ch] text-15 text-ink-2">{CONDITION_DESCRIPTIONS[listing.condition]}</p>
 
-              <section aria-labelledby="seller-heading" className="mt-6 border-t border-border pt-5">
-                <h2 id="seller-heading" className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                  Seller
+              <section aria-labelledby="note-heading" className="mt-6 border-t border-rule pt-4">
+                <h2 id="note-heading" className="text-13 font-bold text-ink">
+                  Seller&apos;s note
                 </h2>
-                <p className="mt-1.5 text-base font-medium text-ink">{listing.seller_display_name}</p>
+                <p className="mt-1.5 max-w-[52ch] whitespace-pre-wrap border-l-2 border-ballpoint pl-3 text-17 italic leading-relaxed text-ballpoint sm:text-[19px]">
+                  {listing.description}
+                </p>
+              </section>
+
+              <section aria-labelledby="seller-heading" className="mt-6 border-t border-rule pt-4">
+                <h2 id="seller-heading" className="text-13 font-bold text-ink">
+                  Passed on by
+                </h2>
+                <p className="mt-1 text-[18px] font-semibold text-ink">{listing.seller_display_name}</p>
                 {(listing.seller_member_since || typeof listing.seller_active_listings_count === "number") && (
-                  <p className="mt-0.5 flex flex-wrap gap-x-2 text-sm text-ink-muted">
-                    {listing.seller_member_since && (
-                      <span>
-                        Member since{" "}
-                        {new Date(listing.seller_member_since).toLocaleDateString(undefined, {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </span>
-                    )}
+                  <p className="tnum mt-0.5 flex flex-wrap gap-x-2 font-mono text-13 text-ink-2">
+                    {listing.seller_member_since && <span>Member since {formatMonth(listing.seller_member_since)}</span>}
                     {listing.seller_member_since && typeof listing.seller_active_listings_count === "number" && (
-                      <span aria-hidden="true">&middot;</span>
+                      <span aria-hidden="true">·</span>
                     )}
                     {typeof listing.seller_active_listings_count === "number" && (
                       <span>
@@ -171,12 +162,11 @@ export function ListingDetailPage(): React.JSX.Element {
                 )}
               </section>
 
-              <div className="mt-6">
+              <div className="mt-6 border-t border-rule pt-4">
                 {isOwner ? (
                   <div className="flex flex-wrap gap-2">
                     {canEdit && (
                       <Button variant="secondary" onClick={() => navigate(`/listings/${listing.id}/edit`)}>
-                        <Pencil aria-hidden="true" className="size-4" />
                         Edit
                       </Button>
                     )}
@@ -188,71 +178,60 @@ export function ListingDetailPage(): React.JSX.Element {
                           setConfirmingSold(true);
                         }}
                       >
-                        <PackageCheck aria-hidden="true" className="size-4" />
                         Mark as sold
                       </Button>
                     )}
                     <Button
                       variant="ghost"
-                      className="text-danger-600 hover:bg-danger-50 hover:text-danger-700"
+                      className="text-danger hover:bg-transparent hover:underline hover:underline-offset-4"
                       onClick={() => {
                         setActionError(null);
                         setConfirmingDelete(true);
                       }}
                     >
-                      <Trash2 aria-hidden="true" className="size-4" />
                       Delete
                     </Button>
                   </div>
-                ) : listing.status === "available" ? (
+                ) : (
                   // Honest about what the platform does today: the API has
                   // no seller-contact or checkout capability, so this says
                   // so rather than offering an action that leads nowhere.
-                  <p className="rounded-lg bg-paper-muted px-4 py-3 text-sm leading-relaxed text-ink-muted">
-                    Punah-Pustak doesn&apos;t handle payments, and messaging sellers through the site isn&apos;t
-                    available yet.
+                  <p className="max-w-[52ch] text-15 text-ink-2">
+                    Punah-Pustak doesn&apos;t connect buyers and sellers yet. There&apos;s no messaging or checkout on
+                    the site.
                   </p>
-                ) : (
-                  <p className="rounded-lg bg-paper-muted px-4 py-3 text-sm text-ink-muted">This book has been sold.</p>
                 )}
               </div>
 
-              <section aria-labelledby="description-heading" className="mt-8">
-                <h2 id="description-heading" className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                  About this copy
-                </h2>
-                <p className="mt-2 max-w-prose whitespace-pre-wrap text-base leading-relaxed text-ink">
-                  {listing.description}
-                </p>
-              </section>
-
-              <dl className="mt-8 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 border-t border-border pt-5 text-sm">
-                <dt className="text-ink-muted">Category</dt>
-                <dd className="text-ink">{CATEGORY_LABELS[listing.category]}</dd>
-                <dt className="text-ink-muted">Listed</dt>
-                <dd className="text-ink">{formatDate(listing.created_at)}</dd>
-                {listing.sold_at && (
-                  <>
-                    <dt className="text-ink-muted">Sold</dt>
-                    <dd className="text-ink">{formatDate(listing.sold_at)}</dd>
-                  </>
-                )}
-              </dl>
+              <p className="tnum mt-6 border-t border-rule pt-4 font-mono text-13 text-ink-2">
+                Listed {formatDay(listing.created_at)} · {CATEGORY_LABELS[listing.category]} ·{" "}
+                {listing.images.length === 0
+                  ? "no photo"
+                  : `${listing.images.length} ${listing.images.length === 1 ? "photo" : "photos"}`}
+              </p>
             </div>
           </article>
 
           {/* `seller_other_listings` is populated only by this single
               -listing endpoint and already excludes this listing, sold or
-              removed listings, and a suspended seller's listings — so the
+              removed listings, and a suspended seller's listings, so the
               only condition here is whether there is anything to show. */}
           {listing.seller_other_listings && listing.seller_other_listings.length > 0 && (
-            <section aria-labelledby="more-heading" className="mt-16 border-t border-border pt-8">
-              <h2 id="more-heading" className="font-serif text-xl font-semibold text-ink">
-                More from {listing.seller_display_name}
-              </h2>
-              <div className={cn(LISTING_GRID_CLASSES, "mt-6")}>
+            <section aria-labelledby="more-heading" className="mt-14 sm:mt-20">
+              <div className="mb-5 flex flex-wrap items-baseline gap-x-4 border-t border-ink pt-3.5 sm:mb-6">
+                <h2 id="more-heading" className="text-[19px] font-bold tracking-[-0.015em] text-ink sm:text-22">
+                  More from {listing.seller_display_name}
+                </h2>
+                <span className="tnum font-mono text-13 text-ink-2">
+                  {listing.seller_other_listings.length}{" "}
+                  {listing.seller_other_listings.length === 1 ? "other copy" : "other copies"}
+                </span>
+              </div>
+              <div className={RAIL_CLASSES}>
                 {listing.seller_other_listings.map((other) => (
-                  <ListingCard key={other.id} listing={other} />
+                  <div key={other.id}>
+                    <ListingCard listing={other} showSeller={false} showNote={false} density="compact" />
+                  </div>
                 ))}
               </div>
             </section>
@@ -261,15 +240,13 @@ export function ListingDetailPage(): React.JSX.Element {
       )}
 
       <Modal isOpen={confirmingSold} onClose={() => setConfirmingSold(false)} title="Mark this listing as sold?">
-        <p className="text-sm text-ink-muted">
-          It will be removed from public browse results but remain visible on My Listings.
-        </p>
+        <p className="text-15 text-ink-2">It will be removed from public browse results but remain visible on My Listings.</p>
         {actionError && (
-          <p role="alert" className="mt-2 text-sm font-medium text-danger-600">
+          <p role="alert" className="mt-2 text-15 font-medium text-danger">
             {actionError}
           </p>
         )}
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setConfirmingSold(false)}>
             Cancel
           </Button>
@@ -280,15 +257,13 @@ export function ListingDetailPage(): React.JSX.Element {
       </Modal>
 
       <Modal isOpen={confirmingDelete} onClose={() => setConfirmingDelete(false)} title="Delete this listing?">
-        <p className="text-sm text-ink-muted">
-          It will no longer appear in public browse or search. This cannot be undone from here.
-        </p>
+        <p className="text-15 text-ink-2">It will no longer appear in public browse or search. This cannot be undone from here.</p>
         {actionError && (
-          <p role="alert" className="mt-2 text-sm font-medium text-danger-600">
+          <p role="alert" className="mt-2 text-15 font-medium text-danger">
             {actionError}
           </p>
         )}
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setConfirmingDelete(false)}>
             Cancel
           </Button>
@@ -298,5 +273,215 @@ export function ListingDetailPage(): React.JSX.Element {
         </div>
       </Modal>
     </QueryState>
+  );
+}
+
+function photoAlt(listing: ListingPublic, index: number): string {
+  return `${listing.title} by ${listing.author}, seller's photo ${index + 1} of ${listing.images.length}`;
+}
+
+/**
+ * The evidence. From 768px: the selected photo large in a field that takes
+ * its shape, the full set beneath it as a contact strip at true
+ * proportions, and the photo opens full-size in a lightbox. On phones: one
+ * square field per photo in a horizontal, snapping strip with a "1 / 4"
+ * counter. Only one of the two is ever in the DOM.
+ */
+function Photos({ listing }: { listing: ListingPublic }): React.JSX.Element {
+  const isWide = useMediaQuery(MD_UP);
+  const [active, setActive] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const images = listing.images;
+  const count = images.length;
+
+  if (count === 0) {
+    return (
+      <div className="-mx-4 sm:mx-0">
+        <PhotoFrame variant="stage" title={listing.title} author={listing.author} />
+      </div>
+    );
+  }
+
+  const current = images[Math.min(active, count - 1)];
+
+  return (
+    <div>
+      {isWide ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setLightboxIndex(active)}
+            aria-label={`Enlarge photo ${active + 1} of ${count}`}
+            className="group block w-full cursor-zoom-in"
+          >
+            <PhotoFrame
+              key={current.id}
+              variant="stage"
+              title={listing.title}
+              author={listing.author}
+              image={{ url: current.url, alt: photoAlt(listing, active) }}
+            />
+          </button>
+          <p className="tnum mt-2 flex justify-between font-mono text-13 text-ink-2">
+            <span>
+              Photo {active + 1} of {count}
+            </span>
+            <button type="button" onClick={() => setLightboxIndex(active)} className="underline underline-offset-2 hover:text-ink">
+              Enlarge
+            </button>
+          </p>
+          {count > 1 && <ContactStrip images={images} active={active} onSelect={setActive} />}
+        </>
+      ) : (
+        <SwipeStrip listing={listing} onOpen={setLightboxIndex} />
+      )}
+
+      {lightboxIndex !== null && (
+        <Lightbox listing={listing} index={lightboxIndex} onIndexChange={setLightboxIndex} onClose={() => setLightboxIndex(null)} />
+      )}
+    </div>
+  );
+}
+
+function ContactStrip({
+  images,
+  active,
+  onSelect,
+}: {
+  images: ListingImagePublic[];
+  active: number;
+  onSelect: (index: number) => void;
+}): React.JSX.Element {
+  return (
+    <ul className="mt-6 flex flex-wrap items-end gap-4" aria-label="All photos">
+      {images.map((image, index) => (
+        <li key={image.id}>
+          <button
+            type="button"
+            onClick={() => onSelect(index)}
+            aria-label={`Show photo ${index + 1} of ${images.length}`}
+            aria-current={index === active}
+            className="group flex flex-col gap-1.5 text-left"
+          >
+            <span
+              className={cn(
+                "block h-24 rounded-xs bg-field p-2 transition-colors group-hover:bg-field-hover",
+                index === active && "bg-field-hover shadow-[inset_0_-3px_0_var(--color-ballpoint)]",
+              )}
+            >
+              <img src={image.url} alt="" className="h-full w-auto" />
+            </span>
+            <span className="tnum font-mono text-13 text-ink-2">{String(index + 1).padStart(2, "0")}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SwipeStrip({ listing, onOpen }: { listing: ListingPublic; onOpen: (index: number) => void }): React.JSX.Element {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState(0);
+  const count = listing.images.length;
+
+  // The counter follows the strip's own scroll position (not the window's).
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    function handleScroll(): void {
+      if (strip && strip.clientWidth > 0) {
+        setCurrent(Math.round(strip.scrollLeft / strip.clientWidth));
+      }
+    }
+    strip.addEventListener("scroll", handleScroll, { passive: true });
+    return () => strip.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  return (
+    <div>
+      <div
+        ref={stripRef}
+        role="region"
+        aria-label={count > 1 ? "Seller's photos, scroll sideways for more" : "Seller's photo"}
+        tabIndex={count > 1 ? 0 : undefined}
+        className="-mx-4 flex snap-x snap-mandatory overflow-x-auto sm:-mx-6"
+      >
+        {listing.images.map((image, index) => (
+          <button
+            key={image.id}
+            type="button"
+            onClick={() => onOpen(index)}
+            aria-label={`Enlarge photo ${index + 1} of ${count}`}
+            className="w-full shrink-0 snap-start"
+          >
+            <PhotoFrame
+              variant="grid"
+              className="rounded-none"
+              title={listing.title}
+              author={listing.author}
+              image={{ url: image.url, alt: photoAlt(listing, index) }}
+            />
+          </button>
+        ))}
+      </div>
+      <p className="tnum mt-2 flex justify-between font-mono text-13 text-ink-2">
+        <span aria-live="polite">
+          {Math.min(current + 1, count)} / {count}
+        </span>
+        <span aria-hidden="true">{count > 1 ? "swipe for more" : "tap to enlarge"}</span>
+      </p>
+    </div>
+  );
+}
+
+function Lightbox({
+  listing,
+  index,
+  onIndexChange,
+  onClose,
+}: {
+  listing: ListingPublic;
+  index: number;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
+}): React.JSX.Element {
+  const count = listing.images.length;
+  const image = listing.images[index];
+  const previous = (): void => onIndexChange((index - 1 + count) % count);
+  const next = (): void => onIndexChange((index + 1) % count);
+
+  useEffect(() => {
+    function handleKey(event: KeyboardEvent): void {
+      if (count < 2) return;
+      if (event.key === "ArrowLeft") onIndexChange((index - 1 + count) % count);
+      if (event.key === "ArrowRight") onIndexChange((index + 1) % count);
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [count, index, onIndexChange]);
+
+  return (
+    <Modal isOpen variant="lightbox" onClose={onClose} title={`${listing.title}, photo ${index + 1} of ${count}`}>
+      <div className="relative min-h-0 flex-1 px-2 sm:px-6">
+        <img key={image.id} src={image.url} alt={photoAlt(listing, index)} className="animate-photo-in h-full w-full object-contain" />
+      </div>
+      <div className="flex min-h-16 items-center justify-between gap-4 px-4 font-mono text-13 sm:px-6">
+        {count > 1 ? (
+          <>
+            <button type="button" onClick={previous} className="inline-flex min-h-11 items-center px-1 underline-offset-4 hover:underline focus-visible:outline-ground">
+              Previous
+            </button>
+            <span className="tnum">
+              {index + 1} / {count}
+            </span>
+            <button type="button" onClick={next} className="inline-flex min-h-11 items-center px-1 underline-offset-4 hover:underline focus-visible:outline-ground">
+              Next
+            </button>
+          </>
+        ) : (
+          <span>1 / 1</span>
+        )}
+      </div>
+    </Modal>
   );
 }

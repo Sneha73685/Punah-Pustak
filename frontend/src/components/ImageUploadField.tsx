@@ -97,21 +97,21 @@ export function ImageUploadField({
         onDragLeave={() => setIsDragActive(false)}
         onDrop={handleDrop}
         className={cn(
-          "flex cursor-pointer items-center gap-4 rounded-lg border border-dashed px-4 py-5 transition-[border-color,background-color] duration-150",
+          "flex cursor-pointer items-center gap-4 rounded-xs border border-dashed px-4 py-5 transition-colors duration-150 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ballpoint has-[:focus-visible]:[outline-style:solid]",
           remaining <= 0
-            ? "cursor-not-allowed border-border bg-paper-muted text-ink-soft"
+            ? "cursor-not-allowed border-rule bg-field text-ink-2"
             : isDragActive
-              ? "border-moss-500 bg-moss-50"
-              : "border-border-strong bg-white hover:border-moss-500/60",
+              ? "border-ballpoint bg-field"
+              : "border-rule-strong bg-white hover:border-ink",
         )}
       >
-        <Camera aria-hidden="true" className={cn("size-6 shrink-0", remaining > 0 ? "text-moss-600" : "text-ink-soft")} />
+        <Camera aria-hidden="true" className="size-6 shrink-0 text-ink-2" />
         <span className="flex flex-col">
-          <span className="text-sm font-medium text-ink">
+          <span className="text-15 font-medium text-ink">
             {remaining > 0 ? "Add a photo of your copy" : "Photo limit reached"}
           </span>
           {remaining > 0 && (
-            <span className="text-sm text-ink-muted">
+            <span className="text-15 text-ink-2">
               Choose files or drop them here. The first photo is the one buyers see first.
             </span>
           )}
@@ -128,7 +128,7 @@ export function ImageUploadField({
           className="sr-only"
         />
       </label>
-      <p id="listing-images-hint" className="text-xs text-ink-muted">
+      <p id="listing-images-hint" className="text-13 text-ink-2">
         JPEG, PNG, or WebP, up to 5 MB each. {Math.max(remaining, 0)} more can be added (
         {MAX_IMAGES_PER_LISTING} total per listing).
       </p>
@@ -138,26 +138,26 @@ export function ImageUploadField({
             const tooLarge = file.size > MAX_IMAGE_SIZE_BYTES;
             return (
               <li key={`${file.name}-${index}`} className="flex flex-col">
-                {/* Previewed the way buyers will see it: uncropped, in a 2:3
-                    slot, standing on the slot's bottom edge. */}
+                {/* Previewed the way buyers will see it: uncropped, at its
+                    true proportions, on the square evidence field. */}
                 <div
                   className={cn(
-                    "flex aspect-[2/3] items-end justify-center rounded-xs bg-paper-muted",
-                    tooLarge && "outline outline-2 outline-danger-600",
+                    "relative aspect-square rounded-xs bg-field",
+                    tooLarge && "outline outline-2 outline-danger",
                   )}
                 >
                   <img
                     src={previewUrls.current.get(file)}
                     alt={file.name}
-                    className="max-h-full max-w-full rounded-xs object-contain shadow-object"
+                    className="absolute inset-[6%] h-[88%] w-[88%] object-contain"
                   />
                 </div>
-                {tooLarge && <p className="mt-1 text-xs font-medium text-danger-600">Too large</p>}
+                {tooLarge && <p className="mt-1 text-13 font-medium text-danger">Too large</p>}
                 <button
                   type="button"
                   onClick={() => removeFile(index)}
                   aria-label={`Remove ${file.name}`}
-                  className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-ink-muted underline-offset-4 hover:text-danger-600 hover:underline"
+                  className="inline-flex min-h-11 items-center gap-1 self-start text-15 text-ink-2 underline-offset-4 hover:text-danger hover:underline"
                 >
                   <X aria-hidden="true" className="size-3.5" />
                   Remove
@@ -168,7 +168,7 @@ export function ImageUploadField({
         </ul>
       )}
       {error && (
-        <p role="alert" className="text-xs font-medium text-danger-600">
+        <p role="alert" className="text-13 font-medium text-danger">
           {error}
         </p>
       )}

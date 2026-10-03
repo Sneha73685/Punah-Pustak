@@ -12,25 +12,25 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
 }
 
+/** Ballpoint for the action, an outlined rule for the alternative, danger
+ * only inside a confirmation of something destructive. 2px corners, no
+ * shadows, no press animation. */
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary:
-    "bg-moss-500 text-white hover:bg-moss-600 focus-visible:bg-moss-600 active:bg-moss-700",
-  secondary:
-    "bg-paper text-ink border border-border-strong hover:border-moss-500/50 hover:bg-paper-muted focus-visible:bg-paper-muted",
-  danger:
-    "bg-danger-600 text-white hover:bg-danger-700 focus-visible:bg-danger-700",
-  ghost: "text-ink-muted hover:bg-paper-muted hover:text-ink focus-visible:bg-paper-muted",
+  primary: "border border-ballpoint bg-ballpoint text-white hover:border-ballpoint-deep hover:bg-ballpoint-deep",
+  secondary: "border border-rule-strong bg-transparent text-ink hover:border-ink",
+  danger: "border border-danger bg-danger text-white hover:bg-[#8e1f16]",
+  ghost: "border border-transparent text-ink hover:bg-field",
 };
 
 const BASE_CLASSES =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-[color,background-color,border-color,transform] duration-150";
+  "inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xs px-[18px] text-15 font-semibold transition-colors duration-150";
 
-/** The button look for an element that isn't a `<button>` — chiefly a
+/** The button look for an element that isn't a `<button>`, chiefly a
  * router `<Link>` that navigates. Navigation should be a link (it can be
  * opened in a new tab, and assistive tech announces it as one); this lets
  * it look like the primary or secondary action it is. */
 export function buttonClasses(variant: ButtonVariant = "primary", className?: string): string {
-  return cn(BASE_CLASSES, "motion-safe:active:scale-[0.98]", VARIANT_CLASSES[variant], className);
+  return cn(BASE_CLASSES, VARIANT_CLASSES[variant], className);
 }
 
 /** FE-011 shared component. A11Y-002: all variants keep 4.5:1 contrast
@@ -45,15 +45,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={rest.type ?? "button"}
       disabled={disabled || isLoading}
       aria-busy={isLoading || undefined}
-      className={cn(
-        BASE_CLASSES,
-        "motion-safe:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
-        VARIANT_CLASSES[variant],
-        className,
-      )}
+      className={cn(BASE_CLASSES, "disabled:cursor-not-allowed disabled:opacity-50", VARIANT_CLASSES[variant], className)}
       {...rest}
     >
-      {isLoading && <Loader2 aria-hidden="true" className="size-4 animate-spin" />}
+      {isLoading && <Loader2 aria-hidden="true" className="size-4 motion-safe:animate-spin" />}
       {children}
     </button>
   );

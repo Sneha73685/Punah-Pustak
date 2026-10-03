@@ -27,3 +27,6 @@ export function useMediaQuery(query: string, fallback = true): boolean {
 
 /** Tailwind's `md` breakpoint (48rem). */
 export const MD_UP = "(min-width: 48rem)";
+
+/** Tailwind's `lg` breakpoint (64rem). */
+export const LG_UP = "(min-width: 64rem)";

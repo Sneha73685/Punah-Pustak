@@ -53,8 +53,8 @@ export function RegisterPage(): React.JSX.Element {
   if (isRegistered) {
     return (
       <AuthShell>
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-h1">Account created</h1>
-        <p className="mt-2 text-base text-ink-muted">Your account is ready. Log in to start listing books.</p>
+        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-ink sm:text-30">Account created</h1>
+        <p className="mt-2 text-17 text-ink-2">Your account is ready. Log in to list your first copy.</p>
         <Link to="/login" className={buttonClasses("primary", "mt-6 w-full")}>
           Log in
         </Link>
@@ -64,9 +64,9 @@ export function RegisterPage(): React.JSX.Element {
 
   return (
     <AuthShell>
-      <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-h1">Create your account</h1>
-      <p className="mt-2 text-base text-ink-muted">An account lets you list books for other readers.</p>
-      <form className="mt-6 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
+      <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-ink sm:text-30">Register</h1>
+      <p className="mt-2 text-17 text-ink-2">An account lets you list copies for other readers and manage them. You don’t need one to browse.</p>
+      <form className="mt-7 flex flex-col gap-5" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <Input
           label="Display name"
           autoComplete="name"
@@ -95,17 +95,17 @@ export function RegisterPage(): React.JSX.Element {
           error={fieldErrors.password}
         />
         {formError && (
-          <p role="alert" className="text-sm font-medium text-danger-600">
+          <p role="alert" className="text-15 font-medium text-danger">
             {formError}
           </p>
         )}
-        <Button type="submit" isLoading={isSubmitting} className="mt-2">
+        <Button type="submit" isLoading={isSubmitting} className="mt-1 w-full">
           Register
         </Button>
       </form>
-      <p className="mt-6 border-t border-border pt-6 text-sm text-ink-muted">
+      <p className="mt-7 border-t border-rule pt-4 text-15 text-ink-2">
         Already have an account?{" "}
-        <Link to="/login" className="font-medium text-moss-700 underline underline-offset-4 hover:text-moss-600">
+        <Link to="/login" className="font-medium text-ballpoint underline underline-offset-4">
           Log in
         </Link>
       </p>

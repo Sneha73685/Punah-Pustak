@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthContext";
+import { AuthShell } from "@/components/AuthShell";
 import { PasswordChangeForm } from "@/components/PasswordChangeForm";
 
 /**
@@ -16,17 +17,17 @@ export function ChangePasswordPage(): React.JSX.Element {
   const { completePasswordChange } = useAuth();
 
   return (
-    <div className="mx-auto flex w-full max-w-[400px] flex-col pt-2 sm:pt-8">
-      <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-h1">
+    <AuthShell>
+      <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-ink sm:text-30">
         Change your password
       </h1>
-      <p className="mt-2 text-base text-ink-muted">
+      <p className="mt-2 text-17 text-ink-2">
         An administrator reset your password. Enter the temporary password you were given, then choose a new one,
         before continuing.
       </p>
-      <div className="mt-6">
+      <div className="mt-7">
         <PasswordChangeForm currentPasswordLabel="Temporary password" onSuccess={() => void completePasswordChange()} />
       </div>
-    </div>
+    </AuthShell>
   );
 }

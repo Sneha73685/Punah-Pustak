@@ -46,10 +46,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={inputId} className={cn("text-sm font-medium text-ink", hideLabel && "sr-only")}>
+      <label htmlFor={inputId} className={cn("text-[14px] font-semibold text-ink", hideLabel && "sr-only")}>
         {label}
         {required && (
-          <span aria-hidden="true" className="ml-0.5 text-danger-600">
+          <span aria-hidden="true" className="ml-0.5 text-danger">
             *
           </span>
         )}
@@ -58,7 +58,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         {Icon && (
           <Icon
             aria-hidden="true"
-            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-soft"
+            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-2"
           />
         )}
         <input
@@ -68,24 +68,24 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           aria-invalid={error ? true : undefined}
           aria-describedby={cn(error && errorId, hint && !error && hintId) || undefined}
           className={cn(
-            "min-h-11 w-full rounded-lg py-2.5 text-base text-ink placeholder:text-ink-soft sm:text-sm",
+            "min-h-11 w-full rounded-xs py-2.5 text-base text-ink placeholder:text-ink-2",
             Icon ? "pl-10 pr-3" : "px-3",
-            "transition-[box-shadow,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss-500/40",
-            "disabled:cursor-not-allowed disabled:bg-paper-muted disabled:text-ink-muted",
+            "transition-colors focus-visible:border-ballpoint focus-visible:outline-2 focus-visible:outline-offset-0",
+            "disabled:cursor-not-allowed disabled:border-rule disabled:bg-transparent disabled:text-ink-2",
             "border bg-white",
-            error ? "border-danger-600" : "border-border-strong hover:border-ink-soft/60 focus-visible:border-moss-500",
+            error ? "border-danger" : "border-rule-strong hover:border-ink-2",
             className,
           )}
           {...rest}
         />
       </div>
       {hint && !error && (
-        <p id={hintId} className="text-xs text-ink-muted">
+        <p id={hintId} className="text-13 text-ink-2">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errorId} role="alert" className="text-xs font-medium text-danger-600">
+        <p id={errorId} role="alert" className="text-13 font-medium text-danger">
           {error}
         </p>
       )}
