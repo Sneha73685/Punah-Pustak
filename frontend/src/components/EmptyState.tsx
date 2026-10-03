@@ -26,20 +26,11 @@ export function EmptyState({
   className,
 }: EmptyStateProps): React.JSX.Element {
   return (
-    <div
-      className={cn(
-        "animate-fade-up flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border-strong bg-paper-muted/60 px-6 py-14 text-center",
-        className,
-      )}
-    >
-      {Icon && (
-        <span className="flex size-14 items-center justify-center rounded-full bg-white text-moss-500 shadow-card">
-          <Icon aria-hidden="true" className="size-6" />
-        </span>
-      )}
-      <h3 className="font-serif text-xl font-semibold text-ink">{title}</h3>
-      {description && <p className="max-w-sm text-sm leading-relaxed text-ink-muted">{description}</p>}
-      {action && <div className="mt-2">{action}</div>}
+    <div className={cn("flex flex-col items-start gap-2 border-y border-border py-10", className)}>
+      {Icon && <Icon aria-hidden="true" className="mb-1 size-6 text-ink-soft" />}
+      <h2 className="font-serif text-2xl font-semibold text-ink">{title}</h2>
+      {description && <p className="max-w-md text-base leading-relaxed text-ink-muted">{description}</p>}
+      {action && <div className="mt-3">{action}</div>}
     </div>
   );
 }

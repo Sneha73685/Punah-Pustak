@@ -13,6 +13,8 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   /** Rendered as the first, disabled-if-required `<option>` — e.g. "Any category". */
   placeholder?: string;
   error?: string;
+  /** Helper text under the field, e.g. what the selected option means. */
+  hint?: string;
 }
 
 /** FE-011 shared component. Same label/error association pattern as `Input`
@@ -21,19 +23,20 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
  * different enough that sharing one component would need its own internal
  * branching, which is worse than two small, single-purpose components. */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, options, placeholder, error, id, className, required, children, ...rest },
+  { label, options, placeholder, error, hint, id, className, required, children, ...rest },
   ref,
 ) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
   const errorId = `${selectId}-error`;
+  const hintId = `${selectId}-hint`;
 
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={selectId} className="text-sm font-medium text-ink">
         {label}
         {required && (
-          <span aria-hidden="true" className="ml-0.5 text-clay-600">
+          <span aria-hidden="true" className="ml-0.5 text-danger-600">
             *
           </span>
         )}
@@ -43,13 +46,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={selectId}
         required={required}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={cn(error && errorId, hint && !error && hintId) || undefined}
         className={cn(
-          "rounded-lg border bg-white px-3 py-2.5 text-sm text-ink",
+          "min-h-11 rounded-lg border bg-white px-3 py-2.5 text-base text-ink sm:text-sm",
           "transition-[box-shadow,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss-500/40",
           "disabled:cursor-not-allowed disabled:bg-paper-muted disabled:text-ink-muted",
           error
-            ? "border-clay-500"
+            ? "border-danger-600"
             : "border-border-strong hover:border-ink-soft/60 focus-visible:border-moss-500",
           className,
         )}
@@ -63,8 +66,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         ))}
         {children as ReactNode}
       </select>
+      {hint && !error && (
+        <p id={hintId} className="text-xs text-ink-muted">
+          {hint}
+        </p>
+      )}
       {error && (
-        <p id={errorId} role="alert" className="text-xs font-medium text-clay-600">
+        <p id={errorId} role="alert" className="text-xs font-medium text-danger-600">
           {error}
         </p>
       )}

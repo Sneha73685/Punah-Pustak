@@ -1,73 +1,63 @@
 import type { ReactNode } from "react";
-import { BookOpen, Handshake, Leaf } from "lucide-react";
 
-import { Logo } from "@/components/Logo";
-
-const PANEL_POINTS = [
-  { icon: BookOpen, text: "Thousands of second-hand books, listed by real readers." },
-  { icon: Handshake, text: "Deal directly with the seller — no middleman, no markup." },
-  { icon: Leaf, text: "Every sale keeps a book in circulation instead of a landfill." },
-];
+import { useBrowseListings } from "@/hooks/useListings";
+import type { ListingPublic } from "@/api/types";
 
 export interface AuthShellProps {
   children: ReactNode;
 }
 
+const COVER_COUNT = 4;
+const COVER_MIN = 3;
+
 /**
- * Shared editorial split layout for `LoginPage`/`RegisterPage`: a brand
- * panel on `lg:` screens, the form on its own on every other width. Not
- * used by `ChangePasswordPage` — that page is a forced interstitial, not an
- * entry point, so the simpler single-card treatment fits better there.
+ * The frame for login and registration: one ~400px column on the paper
+ * ground — the page supplies its H1, one honest sentence, the form and the
+ * switch link. Phone and desktop share this composition, so nothing that
+ * carries meaning appears on one and vanishes on the other.
  *
- * Phase 5: the form side now sits on `bg-paper` rather than stark white —
- * the same paper the rest of the product's page background already is —
- * so the panel's own white `Input` fields read as slips of paper set down
- * on the page, not a generic app card. The moss panel used to simply
- * vanish below `lg` (`hidden lg:flex`), leaving mobile with no brand
- * presence at all before Phase 5; a compact strip reusing the shared
- * `Logo` and the site's own tagline now stands in for it there, so mobile
- * gets its own small entrance instead of the desktop layout's leftover
- * half. The desktop panel's hand-rolled icon+wordmark is replaced with
- * that same shared `Logo`, rather than a second, drifting copy of it.
+ * The only addition is a small row of real, photographed books from the
+ * current shelf above the form, on screens wide enough to spare the room
+ * (the row is decorative context, `aria-hidden`, not content a phone user
+ * is missing). It reuses the homepage's newest-listings request and only
+ * appears when at least `COVER_MIN` photographed listings exist — never
+ * placeholder art, never a claim about how many books there are.
  */
 export function AuthShell({ children }: AuthShellProps): React.JSX.Element {
   return (
-    <div className="mx-auto grid max-w-4xl animate-fade-up grid-cols-1 overflow-hidden rounded-2xl border border-border bg-paper shadow-lift lg:grid-cols-2">
-      <div className="flex items-center gap-2.5 border-b border-border bg-moss-600 px-6 py-4 text-white lg:hidden">
-        <Logo markOnly />
-        <span className="font-serif text-sm">Give your books a second story.</span>
-      </div>
+    <div className="mx-auto flex w-full max-w-[400px] flex-col pt-2 sm:pt-8">
+      <RecentCovers />
+      {children}
+    </div>
+  );
+}
 
-      <div className="relative hidden flex-col justify-between gap-8 overflow-hidden bg-moss-600 p-10 text-white lg:flex">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(255,255,255,0.12),transparent_55%)]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-24 -right-16 size-64 rounded-full bg-moss-500/40 blur-3xl"
-        />
-        <Logo className="relative [&_span:last-child]:text-white" />
-        <div className="relative flex flex-col gap-6">
-          <h2 className="font-serif text-3xl font-semibold leading-tight">
-            Give your books a second story.
-          </h2>
-          <ul className="flex flex-col gap-4">
-            {PANEL_POINTS.map((point) => (
-              <li key={point.text} className="flex items-start gap-3 text-sm text-moss-50">
-                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10">
-                  <point.icon aria-hidden="true" className="size-4" />
-                </span>
-                <span className="pt-1.5">{point.text}</span>
-              </li>
+function RecentCovers(): React.JSX.Element {
+  // Same key as the homepage's request, so arriving from home costs nothing.
+  const query = useBrowseListings({ page: 1, pageSize: 20 });
+  const withPhotos = (query.data?.items ?? []).filter((item: ListingPublic) => item.images.length > 0);
+  const show = withPhotos.length >= COVER_MIN;
+
+  // The row's space is reserved whether or not covers end up in it, so
+  // their arrival (or absence) never moves the form below.
+  return (
+    <div aria-hidden="true" className="mb-10 hidden h-[97px] md:block">
+      {show && (
+        <>
+          <div className="flex items-end justify-center gap-3">
+            {withPhotos.slice(0, COVER_COUNT).map((item) => (
+              <div key={item.id} className="flex h-24 w-16 items-end justify-center">
+                <img
+                  src={item.images[0].url}
+                  alt=""
+                  className="max-h-full max-w-full rounded-xs object-contain shadow-object"
+                />
+              </div>
             ))}
-          </ul>
-        </div>
-        <p className="relative text-xs text-moss-100">
-          A peer-to-peer marketplace for second-hand books.
-        </p>
-      </div>
-      <div className="flex flex-col justify-center p-6 sm:p-10">{children}</div>
+          </div>
+          <div className="mx-auto w-64 border-b border-border-strong" />
+        </>
+      )}
     </div>
   );
 }

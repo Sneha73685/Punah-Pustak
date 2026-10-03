@@ -2,91 +2,84 @@ import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/Badge";
 import { BookCover } from "@/components/BookCover";
-import { cn } from "@/lib/cn";
-import {
-  CATEGORY_LABELS,
-  CONDITION_LABELS,
-  formatPrice,
-  STATUS_LABELS,
-  STATUS_TONES,
-} from "@/lib/listingLabels";
+import { CONDITION_LABELS, formatPrice, STATUS_LABELS, STATUS_TONES } from "@/lib/listingLabels";
 import type { ListingPublic } from "@/api/types";
 
 export interface ListingCardProps {
   listing: ListingPublic;
-  /** My Listings shows every status (FR-025); public browse never does
-   * (FR-026), so the status badge is opt-in rather than always rendered. */
+  /** Owner/admin contexts only — public browse never shows status (FR-026). */
   showStatus?: boolean;
-  /**
-   * Off by default (Phase 3 motion pass). This card is mounted fresh
-   * every time its result set changes — every keystroke in Browse's
-   * search box, every filter, every page of admin/My Listings — which
-   * made the entrance replay on nearly every interaction with those
-   * views, not just on first arrival. Reach for `true` only on a page
-   * where this grid's mount is genuinely a one-time "you've arrived"
-   * moment (the homepage) rather than the routine result of browsing.
-   */
-  animateEntrance?: boolean;
-  /** Entrance-animation delay (ms) — set per-card by a grid to stagger the
-   * reveal instead of every card animating in unison; ignored unless
-   * `animateEntrance` is true. */
-  style?: React.CSSProperties;
 }
 
 /**
- * Phase 2A: no longer a generic "rounded panel + shadow + badge +
- * thumbnail" ecommerce card — the object (`BookCover`) carries all of the
- * card's depth and its own hover response, so the surrounding card itself
- * has nothing left to be a panel about. Metadata sits directly on the page
- * below it: the price stays the site's oldstyle-serif signature, condition
- * moves from a generic pill to a small-caps label (moss is the site's
- * interactive color, not a metadata color — see `BookCover`'s own doc
- * comment for the object language this reuses on the detail page).
+ * A listing as a book on a shelf with a catalogue line beneath it — not a
+ * boxed product tile. The cover (`BookCover`) is the only object with
+ * depth; everything below it sits directly on the page:
  *
- * FE-051: `alt` text is the listing's title/author — never a filename.
+ *   title   — serif, at most two lines
+ *   author  — serif italic, one line
+ *   price · condition
+ *
+ * Seller and category live on the detail page and in Browse's filters, not
+ * here: on a card they were two extra lines competing with the two facts a
+ * shopper actually scans for. Price is ink (information); only the title's
+ * hover state uses moss (interaction). Condition is clay, its one role.
+ *
+ * FE-051: image `alt` is the listing's title/author — never a filename.
  */
 export function ListingCard({
   listing,
   showStatus = false,
-  animateEntrance = false,
-  style,
 }: ListingCardProps): React.JSX.Element {
   const firstImage = listing.images[0];
+  const isInactive = listing.status !== "available";
 
   return (
     <Link
       to={`/listings/${listing.id}`}
-      className={cn("group flex h-full flex-col", animateEntrance && "animate-fade-up")}
-      style={animateEntrance ? style : undefined}
+      className="group flex h-full flex-col"
     >
       <BookCover
         size="card"
         interactive
+        inactive={showStatus && isInactive}
+        announceNoPhoto={false}
+        title={listing.title}
+        author={listing.author}
+        category={listing.category}
         image={firstImage ? { url: firstImage.url, alt: `${listing.title} by ${listing.author}` } : undefined}
-        overlay={
-          showStatus && (
-            <span className="absolute right-2 top-2 z-10">
-              <Badge tone={STATUS_TONES[listing.status]} dot className="shadow-card">
-                {STATUS_LABELS[listing.status]}
-              </Badge>
-            </span>
-          )
-        }
       />
-      <div className="flex flex-1 flex-col gap-1 pt-3.5">
-        <h3 className="line-clamp-2 font-serif text-base font-semibold leading-snug text-ink transition-colors group-hover:text-moss-700">
-          {listing.title}
-        </h3>
-        <p className="text-sm text-ink-muted">{listing.author}</p>
-        <div className="mt-auto flex items-baseline justify-between pt-2">
-          <span className="font-serif text-lg font-semibold text-moss-700">{formatPrice(listing.price)}</span>
-          <span className="text-[10.5px] font-semibold uppercase tracking-wider text-clay-600">
+      <div className="flex flex-col pt-3">
+        {/* Reserves room for a two-line title plus the author (46 + 20px)
+            beneath them, rather than inside the title, so the author always
+            sits directly under the title while every price in a grid row
+            still lands on the same line. */}
+        <div className="min-h-[66px]">
+          <h3 className="line-clamp-2 font-serif text-book font-semibold text-ink transition-colors group-hover:text-moss-700">
+            {listing.title}
+          </h3>
+          <p className="truncate font-serif text-sm italic text-ink-muted">{listing.author}</p>
+        </div>
+        <p className="mt-1.5 flex items-baseline gap-1.5 text-sm">
+          <span className="font-serif text-base font-semibold text-ink lining-nums tabular-nums">
+            {formatPrice(listing.price)}
+          </span>
+          <span aria-hidden="true" className="text-ink-soft">
+            &middot;
+          </span>
+          <span className="text-clay-600">
+            <span className="sr-only">Condition: </span>
             {CONDITION_LABELS[listing.condition]}
           </span>
-        </div>
-        <p className="truncate text-xs text-ink-soft">
-          {CATEGORY_LABELS[listing.category]} &middot; {listing.seller_display_name}
+          {!firstImage && <span className="sr-only">, no photo</span>}
         </p>
+        {showStatus && (
+          <span className="mt-2">
+            <Badge tone={STATUS_TONES[listing.status]} dot>
+              {STATUS_LABELS[listing.status]}
+            </Badge>
+          </span>
+        )}
       </div>
     </Link>
   );

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { Card } from "@/components/Card";
 import { EMPTY_LISTING_FORM_VALUES, ListingForm } from "@/components/ListingForm";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { PageHeader } from "@/components/PageHeader";
@@ -62,7 +61,7 @@ export function CreateListingPage(): React.JSX.Element {
         title="List a book"
         description="A few details now, and it's live on Punah-Pustak for other readers to find."
       />
-      <Card padding="lg" elevated={false} className="animate-fade-up">
+      <div className="pt-2">
         <ListingForm
           initialValues={EMPTY_LISTING_FORM_VALUES}
           onSubmit={handleSubmit}
@@ -83,12 +82,12 @@ export function CreateListingPage(): React.JSX.Element {
             </p>
           )}
           {formError && (
-            <p role="alert" className="text-sm font-medium text-clay-600">
+            <p role="alert" className="text-sm font-medium text-danger-600">
               {formError}
             </p>
           )}
         </ListingForm>
-      </Card>
+      </div>
     </div>
   );
 }

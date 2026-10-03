@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
 
 import { useAuth } from "@/auth/AuthContext";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 function navLinkClass({ isActive }: { isActive: boolean }): string {
   return cn(
     "relative rounded-lg px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-paper-muted hover:text-ink",
-    "after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:rounded-full after:bg-moss-500 after:transition-transform after:duration-200",
+    "after:absolute after:inset-x-3 after:-bottom-[14px] after:h-0.5 after:rounded-full after:bg-moss-500 after:transition-transform after:duration-200",
     isActive ? "text-moss-700 after:scale-x-100" : "after:scale-x-0",
   );
 }
@@ -34,6 +34,10 @@ export function Layout(): React.JSX.Element {
   const { state, logout } = useAuth();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // Admin is one section with two tabs (`AdminNav`); the main nav's single
+  // "Admin" entry should read as current on either of them, and admin
+  // pages are operational screens that don't need the marketplace footer.
+  const isAdminRoute = useLocation().pathname.startsWith("/admin");
 
   const isAdmin = state.status === "authenticated" && state.user.role === "admin";
 
@@ -45,12 +49,17 @@ export function Layout(): React.JSX.Element {
       >
         Skip to main content
       </a>
-      <header className="sticky top-0 z-40 border-b border-border bg-paper/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-border bg-paper">
         <nav
           aria-label="Main navigation"
-          className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6"
+          // Fixed height and a three-column grid (logo | links | account):
+          // the account controls only render once the session has been
+          // restored, and with a flex row that arrival changed the header's
+          // height and re-centred the middle links — a layout shift on
+          // every page load. Here neither can move.
+          className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 md:grid-cols-[1fr_auto_1fr]"
         >
-          <Link to="/" className="shrink-0" onClick={() => setIsMenuOpen(false)}>
+          <Link to="/" className="w-fit shrink-0" onClick={() => setIsMenuOpen(false)}>
             <Logo />
           </Link>
 
@@ -70,7 +79,10 @@ export function Layout(): React.JSX.Element {
                   Profile
                 </NavLink>
                 {isAdmin && (
-                  <NavLink to="/admin/users" className={navLinkClass}>
+                  <NavLink
+                    to="/admin/users"
+                    className={({ isActive }) => navLinkClass({ isActive: isActive || isAdminRoute })}
+                  >
                     <span className="inline-flex items-center gap-1.5">
                       <ShieldCheck aria-hidden="true" className="size-4" />
                       Admin
@@ -81,7 +93,7 @@ export function Layout(): React.JSX.Element {
             )}
           </div>
 
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="hidden items-center justify-end gap-2 md:flex">
             {state.status === "authenticated" ? (
               <Button variant="secondary" onClick={() => void logout()}>
                 <LogOut aria-hidden="true" className="size-4" />
@@ -101,7 +113,7 @@ export function Layout(): React.JSX.Element {
 
           <button
             type="button"
-            className="inline-flex items-center justify-center rounded-lg p-2 text-ink transition-colors hover:bg-paper-muted md:hidden"
+            className="inline-flex size-11 items-center justify-center justify-self-end rounded-lg text-ink transition-colors hover:bg-paper-muted md:hidden"
             aria-expanded={isMenuOpen}
             aria-controls="mobile-nav"
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
@@ -129,7 +141,11 @@ export function Layout(): React.JSX.Element {
                     Profile
                   </NavLink>
                   {isAdmin && (
-                    <NavLink to="/admin/users" className={mobileNavLinkClass} onClick={() => setIsMenuOpen(false)}>
+                    <NavLink
+                      to="/admin/users"
+                      className={({ isActive }) => mobileNavLinkClass({ isActive: isActive || isAdminRoute })}
+                      onClick={() => setIsMenuOpen(false)}
+                    >
                       Admin
                     </NavLink>
                   )}
@@ -160,11 +176,14 @@ export function Layout(): React.JSX.Element {
         )}
       </header>
 
-      <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+      {/* At least a viewport tall (less the 4rem header), so the footer always
+          starts below the fold: pages that load content asynchronously can
+          then grow without shoving a visible footer down the screen. */}
+      <main id="main-content" className="mx-auto min-h-[calc(100svh-4rem)] w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
         <Outlet />
       </main>
 
-      <Footer />
+      {!isAdminRoute && <Footer />}
     </div>
   );
 }

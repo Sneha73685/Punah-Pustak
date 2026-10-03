@@ -1,147 +1,216 @@
+import { useState } from "react";
+
 import { NoCoverPlaceholder } from "@/components/NoCoverPlaceholder";
 import { cn } from "@/lib/cn";
+import type { ListingCategory } from "@/api/types";
 
 export interface BookCoverImage {
   url: string;
   alt: string;
 }
 
+export type BookCoverSize = "card" | "detail" | "thumb";
+
 export interface BookCoverProps {
-  /** Omit to render P1A's `NoCoverPlaceholder` instead. */
+  /** Omit to render the typographic no-photo cover instead. */
   image?: BookCoverImage;
-  /** `"card"` for the repeated grid object; `"detail"` for the single,
-   * larger presentation on the listing page. Controls scale only — both
-   * render the same physical-object language. */
-  size?: "card" | "detail";
-  /** Hover/focus lift — on for `ListingCard`, off for the static detail
-   * presentation (which isn't itself a link, and never uses the intrinsic
-   * sizing path below, so there's nothing for `interactive` to affect there). */
+  /** Real listing data, used only by the no-photo cover. */
+  title: string;
+  author: string;
+  category: ListingCategory;
+  /**
+   * - `card`: a fixed 2:3 shelf slot, used by every listing grid.
+   * - `detail`: the single large presentation on the listing page — a
+   *   fixed 2:3 frame capped by viewport height on small screens.
+   * - `thumb`: a small fixed slot for inventory rows and admin tables.
+   */
+  size?: BookCoverSize;
+  /** Hover/focus lift, for covers inside a link (the card's `group`). */
   interactive?: boolean;
-  /** Rendered above the stage, e.g. `ListingCard`'s owner-only status pill. */
-  overlay?: React.ReactNode;
+  /** Dims a cover whose listing is no longer for sale (owner/admin views). */
+  inactive?: boolean;
+  /** Passed to the no-photo cover; see `NoCoverPlaceholder`'s `announce`. */
+  announceNoPhoto?: boolean;
   className?: string;
 }
 
-type Size = NonNullable<BookCoverProps["size"]>;
-
-const STAGE_RADIUS: Record<Size, string> = {
-  card: "rounded-md",
-  detail: "rounded-lg",
+const SLOT_CLASSES: Record<Exclude<BookCoverSize, "detail">, string> = {
+  card: "aspect-[2/3] w-full",
+  thumb: "aspect-[2/3] w-full",
 };
-
-const IMAGE_PADDING: Record<Size, string> = {
-  card: "p-2.5",
-  detail: "p-6 sm:p-8",
-};
-
-const EDGE_WIDTH: Record<Size, string> = {
-  card: "w-3",
-  detail: "w-4",
-};
-
-/** The page-block edge + light-catching hairline, identical wherever a real
- * image renders — factored out so the two stage strategies below (fixed
- * envelope vs. intrinsic sizing) share one definition rather than two
- * hand-kept copies. */
-function PageEdge({ size }: { size: Size }): React.JSX.Element {
-  return (
-    <>
-      <div
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute inset-y-0 left-0 bg-gradient-to-r from-ink/25 via-ink/[0.07] to-transparent",
-          EDGE_WIDTH[size],
-        )}
-      />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-[3px] w-px bg-white/50" />
-    </>
-  );
-}
 
 /**
- * Phase 2A: the "book as object" abstraction — one place, reused by
- * `ListingCard` and `ListingDetailPage`'s primary image, so a real cover
- * photo reads as a physical thing that was placed on the page rather than a
- * generic ecommerce thumbnail, and so that reading never has to be
- * hand-duplicated at each call site.
+ * The "book on a shelf" object, shared by every surface that shows a
+ * listing's cover.
  *
- * A real photo is never force-cropped. Both are gated on `image` being
- * present — an unlit shadow or a page-edge under an empty placeholder would
- * quietly imply an object that isn't there, which is exactly what P1A's
- * no-cover state is not supposed to do. The no-cover stage instead gets a
- * plain dashed border, matching the same "intentional, not broken" language
- * already used elsewhere for absence (`EmptyState`).
+ * A real photo is never cropped and never framed. In the `card`/`thumb`
+ * slot it is `object-contain`-sized by its own aspect ratio and pinned to
+ * the slot's bottom edge, so a row of covers with different shapes (a tall
+ * paperback, a squat hardback, a landscape phone photo) all stand on one
+ * shared baseline. The shadow and 2px radius sit on the `<img>` box itself,
+ * which — because the image is auto-sized rather than stretched — is
+ * exactly the photo's silhouette. A landscape photo therefore fills the
+ * slot's full width at its true shape instead of shrinking inside a frame.
  *
- * Phase 2B fix: a *photographed* `"detail"` image no longer sits inside a
- * fixed-aspect envelope. It used to (`aspect-[3/2] lg:aspect-[4/5]`, tuned
- * for the no-cover placeholder's own footprint — see the fixed-envelope
- * branch below, still used for that case) — but `object-contain` inside a
- * box whose *orientation* doesn't match the photo's own (a landscape 3:2
- * frame under a portrait paperback, at exactly the width this app runs at
- * on a phone) starves the image down to a fraction of the frame and leaves
- * the rest as dead paper-muted margin: physically-motivated depth cues
- * framing empty space instead of a book. A real photo now sizes the frame
- * around itself instead — full width, natural height, capped at `70vh` so
- * an unusually tall photograph still can't take over the screen (the same
- * concern that motivated the old fixed ratio in the first place). The
- * no-cover placeholder keeps the original fixed envelope untouched, since
- * there's no photo to be honest to and it still needs to match
- * `ListingDetailSkeleton`'s own assumed shape.
+ * Without a photo, the slot holds the typographic cover from
+ * `NoCoverPlaceholder`, which carries the same shadow so photo and no-photo
+ * stock read as the same kind of object.
+ *
+ * The hover lift is transform/box-shadow only and gated behind
+ * `motion-safe`, so reduced-motion users get the shadow change without
+ * movement.
  */
 export function BookCover({
   image,
+  title,
+  author,
+  category,
   size = "card",
   interactive = false,
-  overlay,
+  inactive = false,
+  announceNoPhoto = true,
   className,
 }: BookCoverProps): React.JSX.Element {
-  const hasImage = Boolean(image);
-  const intrinsic = size === "detail" && hasImage;
+  const lift =
+    interactive &&
+    "transition-[transform,box-shadow] duration-150 ease-out group-hover:shadow-object-hover group-focus-visible:shadow-object-hover motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus-visible:-translate-y-0.5";
+  const dim = inactive && "opacity-60 saturate-50";
 
-  return (
-    <div className={cn("relative", className)}>
-      {intrinsic ? (
-        <div
-          className={cn(
-            "relative flex w-full items-center justify-center overflow-hidden bg-paper-muted shadow-object",
-            STAGE_RADIUS.detail,
-            IMAGE_PADDING.detail,
-          )}
-        >
-          <img
-            src={image!.url}
-            alt={image!.alt}
-            loading="lazy"
-            className="max-h-[70vh] w-auto max-w-full object-contain"
-          />
-          <PageEdge size="detail" />
-        </div>
-      ) : (
-        <div
-          className={cn(
-            "relative w-full overflow-hidden bg-paper-muted transition-[transform,box-shadow] duration-[280ms] ease-out",
-            size === "card" ? "aspect-[3/4]" : "aspect-[3/2] lg:aspect-[4/5]",
-            STAGE_RADIUS[size],
-            hasImage ? "shadow-object" : "border border-dashed border-border",
-            interactive &&
-              hasImage &&
-              "group-hover:-translate-y-1.5 group-hover:shadow-lift group-focus-visible:-translate-y-1.5 group-focus-visible:shadow-lift",
-          )}
-        >
+  if (size === "detail") {
+    // One fixed 2:3 frame for photo, no-photo cover and the page skeleton
+    // alike — 33vh wide (a 50vh-tall frame) on small screens, up to 360px
+    // in the desktop column — so the layout is settled before the photo
+    // has downloaded. The photo is contained and bottom-aligned inside it,
+    // exactly as on the shelf; the width lives on this wrapper because the
+    // placeholder's own `w-full` would otherwise compete with it (`cn`
+    // doesn't merge conflicting utilities).
+    return (
+      <div className={cn("flex justify-center", className)}>
+        <div className="relative aspect-[2/3] w-[min(100%,33vh)] lg:w-full lg:max-w-[360px]">
           {image ? (
-            <div className={cn("flex h-full w-full items-center justify-center", IMAGE_PADDING[size])}>
-              <img src={image.url} alt={image.alt} loading="lazy" className="h-full w-full object-contain" />
+            // Bottom-aligned on phones (the photo sits right above the
+            // title); top-aligned beside the title column from `lg` up.
+            <div className="absolute inset-0 flex items-end justify-center lg:items-start">
+              <CoverImage
+                src={image.url}
+                alt={image.alt}
+                className={cn("block rounded-xs object-contain shadow-object", dim)}
+                fallback={
+                  <NoCoverPlaceholder size="detail" title={title} author={author} category={category} className={cn(dim)} />
+                }
+              />
             </div>
           ) : (
-            <NoCoverPlaceholder
-              iconClassName={size === "detail" ? "size-14" : undefined}
-              className={size === "detail" ? "gap-3" : undefined}
-            />
+            <NoCoverPlaceholder size="detail" title={title} author={author} category={category} className={cn(dim)} />
           )}
-          {hasImage && <PageEdge size={size} />}
         </div>
+      </div>
+    );
+  }
+
+  // The photo sits in an absolutely positioned frame rather than directly in
+  // the aspect-ratio slot: an aspect-ratio box grows to fit oversized
+  // content (its automatic minimum height), so a very tall photo would
+  // otherwise stretch its slot — and with it the whole grid row — instead
+  // of being contained by it. `inset-0` gives the frame a definite size
+  // for `max-h-full`/`max-w-full` to resolve against.
+  return (
+    <div className={cn("relative", SLOT_CLASSES[size], className)}>
+      {image ? (
+        <div className="absolute inset-0 flex items-end justify-center">
+          <CoverImage
+            src={image.url}
+            alt={image.alt}
+            lazy
+            className={cn("block rounded-xs object-contain shadow-object", lift, dim)}
+            fallback={
+              <NoCoverPlaceholder
+                size={size}
+                title={title}
+                author={author}
+                category={category}
+                announce={announceNoPhoto}
+                className={cn(lift, dim)}
+              />
+            }
+          />
+        </div>
+      ) : (
+        <NoCoverPlaceholder
+          size={size}
+          title={title}
+          author={author}
+          category={category}
+          announce={announceNoPhoto}
+          className={cn(lift, dim)}
+        />
       )}
-      {overlay}
     </div>
+  );
+}
+
+interface CoverImageProps {
+  src: string;
+  alt: string;
+  className: string;
+  lazy?: boolean;
+  /** Rendered instead if the photo fails to load. */
+  fallback: React.ReactNode;
+}
+
+/** Every cover slot (card, thumb, detail frame) is 2:3. */
+const SLOT_RATIO = 2 / 3;
+
+/**
+ * A cover photo that stays `visibility: hidden` until it has loaded. The
+ * frame around it is already sized, so nothing else moves either way — but
+ * an auto-sized `<img>` starts as an empty box and grows when its pixels
+ * arrive, which the browser counts as a layout shift of the image itself.
+ * Hidden, it's simply revealed at its final size. A photo that fails to
+ * load (a missing object in storage, say) falls back to the typographic
+ * no-photo cover rather than a broken-image icon.
+ *
+ * Once loaded, its natural aspect ratio decides which side fills the 2:3
+ * slot: height for a photo taller than the slot, width for a wider one.
+ * That is `object-contain` behaviour — never cropped, small photos scaled
+ * up — while keeping the `<img>` box equal to the photo itself, so the
+ * shadow and rounded corners follow the photo's real silhouette.
+ */
+function CoverImage({ src, alt, className, lazy = false, fallback }: CoverImageProps): React.JSX.Element {
+  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  const [isTallerThanSlot, setIsTallerThanSlot] = useState(true);
+
+  function handleLoaded(element: HTMLImageElement): void {
+    if (element.naturalWidth === 0) {
+      setState("failed");
+      return;
+    }
+    setIsTallerThanSlot(element.naturalWidth / element.naturalHeight <= SLOT_RATIO);
+    setState("loaded");
+  }
+
+  if (state === "failed") {
+    return <>{fallback}</>;
+  }
+  return (
+    <img
+      // Catches an image that finished (e.g. from cache) before React
+      // attached `onLoad`.
+      ref={(element) => {
+        if (element?.complete && state === "loading") {
+          handleLoaded(element);
+        }
+      }}
+      src={src}
+      alt={alt}
+      loading={lazy ? "lazy" : undefined}
+      onLoad={(event) => handleLoaded(event.currentTarget)}
+      onError={() => setState("failed")}
+      className={cn(
+        className,
+        state === "loading" && "invisible max-h-full max-w-full",
+        state === "loaded" && (isTallerThanSlot ? "h-full w-auto" : "h-auto w-full"),
+      )}
+    />
   );
 }

@@ -2,7 +2,7 @@ import type { HTMLAttributes } from "react";
 
 import { cn } from "@/lib/cn";
 
-export type BadgeTone = "neutral" | "success" | "warning" | "danger";
+export type BadgeTone = "neutral" | "success" | "danger";
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   tone?: BadgeTone;
@@ -17,15 +17,13 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 const TONE_CLASSES: Record<BadgeTone, string> = {
   neutral: "bg-paper-muted text-ink-muted",
   success: "bg-moss-50 text-moss-700",
-  warning: "bg-gold-50 text-gold-600",
-  danger: "bg-clay-50 text-clay-600",
+  danger: "bg-danger-50 text-danger-600",
 };
 
 const DOT_CLASSES: Record<BadgeTone, string> = {
   neutral: "bg-ink-soft",
   success: "bg-moss-500",
-  warning: "bg-gold-500",
-  danger: "bg-clay-500",
+  danger: "bg-danger-600",
 };
 
 /**

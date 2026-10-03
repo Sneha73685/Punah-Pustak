@@ -208,7 +208,7 @@ describe("ListingDetailPage more-from-this-seller section", () => {
     vi.mocked(listingsApi.getListing).mockResolvedValue(
       makeListing({
         // Gives the anchor listing itself a real image, so the only
-        // "No cover photo" placeholder on the page is the one this test
+        // "No photo" placeholder on the page is the one this test
         // is actually asserting on — the other-listing card's own.
         images: [{ id: "img-1", url: "https://example.com/book.jpg", position: 0 }],
         seller_other_listings: [
@@ -224,7 +224,7 @@ describe("ListingDetailPage more-from-this-seller section", () => {
     renderDetailPage();
 
     await screen.findByText("Coverless Other");
-    expect(screen.getByText("No cover photo")).toBeInTheDocument();
+    expect(screen.getByText("No photo")).toBeInTheDocument();
   });
 
   it("renders nothing when the seller has no other available listings (empty list)", async () => {

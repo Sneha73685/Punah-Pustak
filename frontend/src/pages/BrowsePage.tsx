@@ -1,105 +1,83 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { BookOpen, Search } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 
-import { BookCover } from "@/components/BookCover";
+import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { ListingCard } from "@/components/ListingCard";
-import { ListingGridSkeleton } from "@/components/Skeleton";
-import { PageHeader } from "@/components/PageHeader";
+import { Modal } from "@/components/Modal";
 import { Pagination } from "@/components/Pagination";
 import { QueryState } from "@/components/QueryState";
 import { Select } from "@/components/Select";
+import { ListingGridSkeleton } from "@/components/Skeleton";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useBrowseListings } from "@/hooks/useListings";
-import { CATEGORY_LABELS, CONDITION_LABELS, formatPrice } from "@/lib/listingLabels";
-import type { ListingCategory, ListingCondition, ListingPublic } from "@/api/types";
+import { cn } from "@/lib/cn";
+import { LISTING_GRID_CLASSES } from "@/lib/layout";
+import { CATEGORY_LABELS, CONDITION_LABELS } from "@/lib/listingLabels";
+import type { ListingCategory, ListingCondition } from "@/api/types";
 
 const PAGE_SIZE = 20;
 
-/**
- * Phase 2B: the one composition idea kept, out of three explored live
- * against this same page's real, mixed dataset. A CSS-grid `col-span` +
- * `dense`-flow "featured tile" was tried first and rejected — relying on a
- * photo's own aspect ratio to size a spanning grid cell means an unusually
- * tall or short featured photo leaves dead space beside its shorter
- * neighbors in the same row track (confirmed live, not assumed: an
- * extra-tall test photo produced a visibly empty gap next to normal-height
- * cards). A standalone strip above the regular grid sidesteps that failure
- * mode entirely — it never shares a row with a differently-sized item, so
- * there is nothing for its own aspect ratio to misalign with. Kept from
- * that same exploration: a hairline rule beneath the strip (the one piece
- * of "editorial divider" rhythm worth borrowing on its own, without
- * building the fuller shelf-banding it was one option among).
- *
- * Gated on there being enough results (5+) that a featured entry reads as
- * a considered opening rather than a lonely oversized tile on a sparse
- * filtered page — the plain, unchanged grid renders below that threshold.
- * The split is computed synchronously from data already in hand, so it
- * never causes a layout shift of its own.
- */
-function FeaturedEntry({ listing }: { listing: ListingPublic }): React.JSX.Element {
-  const firstImage = listing.images[0];
-  return (
-    <Link
-      to={`/listings/${listing.id}`}
-      className="group flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-start sm:gap-8"
-    >
-      <BookCover
-        size="card"
-        interactive
-        className="w-40 shrink-0 sm:w-48 lg:w-56"
-        image={firstImage ? { url: firstImage.url, alt: `${listing.title} by ${listing.author}` } : undefined}
-      />
-      <div className="flex flex-1 flex-col gap-2 pt-1">
-        <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Featured</span>
-        <h3 className="font-serif text-2xl font-semibold leading-tight text-ink transition-colors group-hover:text-moss-700 sm:text-3xl">
-          {listing.title}
-        </h3>
-        <p className="text-base text-ink-muted">{listing.author}</p>
-        <div className="mt-1 flex items-baseline gap-4">
-          <span className="font-serif text-xl font-semibold text-moss-700">{formatPrice(listing.price)}</span>
-          <span className="text-xs font-semibold uppercase tracking-wider text-clay-600">
-            {CONDITION_LABELS[listing.condition]}
-          </span>
-        </div>
-        <p className="text-sm text-ink-soft">
-          {CATEGORY_LABELS[listing.category]} &middot; {listing.seller_display_name}
-        </p>
-      </div>
-    </Link>
-  );
+/** At or below this many results for a narrowed search, suggest widening it. */
+const FEW_RESULTS = 3;
+
+const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }));
+const CONDITION_OPTIONS = Object.entries(CONDITION_LABELS).map(([value, label]) => ({ value, label }));
+const CATEGORIES = Object.keys(CATEGORY_LABELS) as ListingCategory[];
+
+function categoryFromParams(params: URLSearchParams): ListingCategory | "" {
+  const value = params.get("category");
+  return value && value in CATEGORY_LABELS ? (value as ListingCategory) : "";
 }
 
-const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
-const CONDITION_OPTIONS = Object.entries(CONDITION_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
+interface ActiveFilter {
+  key: string;
+  label: string;
+  clear: () => void;
+}
 
-/** FR-001..004, UC-1: public browse/search/filter, paginated. The initial
- * search term can arrive via a `?search=` query param (set by `HomePage`'s
- * hero search), and the initial category via `?category=` (set by the
- * footer's category links) — both purely a convenience read on mount, this
- * page still owns its own filter state exactly as before. */
+/**
+ * FR-001..004: search plus category/condition/price filtering over public,
+ * available listings.
+ *
+ * Controls sit directly on the page under a rule rather than in a boxed
+ * panel. From `sm` up the four filters are one inline row; on phones only
+ * the search field and a "Filters (n)" button are inline, and the filters
+ * open in a bottom sheet — so books start on the first screen instead of
+ * below five stacked fields. Both layouts render the same `FilterFields`
+ * bound to the same state, so they can never disagree.
+ *
+ * There is no "featured" listing: nothing in the data supports calling any
+ * one listing featured, so every result gets the same card in the same
+ * grid.
+ */
 export function BrowsePage(): React.JSX.Element {
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
-  const initialCategory = searchParams.get("category");
-  const [category, setCategory] = useState<ListingCategory | "">(
-    initialCategory && initialCategory in CATEGORY_LABELS ? (initialCategory as ListingCategory) : "",
-  );
+  const [category, setCategory] = useState<ListingCategory | "">(categoryFromParams(searchParams));
   const [condition, setCondition] = useState<ListingCondition | "">("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [page, setPage] = useState(1);
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+
+  // The URL only seeds this page's state (filter changes don't write back to
+  // it). But a link to `/listings?category=…` followed while this page is
+  // already mounted — the footer's category links — changes the URL without
+  // remounting, so re-seed from it when it changes.
+  const paramsKey = searchParams.toString();
+  useEffect(() => {
+    setSearch(searchParams.get("search") ?? "");
+    setCategory(categoryFromParams(searchParams));
+    setCondition("");
+    setMinPrice("");
+    setMaxPrice("");
+    setPage(1);
+  }, [paramsKey]); // keyed on the serialized params, not the object
 
   const debouncedSearch = useDebouncedValue(search, 300);
-
-  const filters = {
+  const query = useBrowseListings({
     search: debouncedSearch || undefined,
     category: category || undefined,
     condition: condition || undefined,
@@ -107,9 +85,7 @@ export function BrowsePage(): React.JSX.Element {
     maxPrice: maxPrice ? Number(maxPrice) : undefined,
     page,
     pageSize: PAGE_SIZE,
-  };
-
-  const query = useBrowseListings(filters);
+  });
 
   function resetToFirstPage<T>(setter: (value: T) => void) {
     return (value: T) => {
@@ -118,104 +94,307 @@ export function BrowsePage(): React.JSX.Element {
     };
   }
 
+  function clearFilters(): void {
+    setCategory("");
+    setCondition("");
+    setMinPrice("");
+    setMaxPrice("");
+    setPage(1);
+  }
+
+  function clearAll(): void {
+    clearFilters();
+    setSearch("");
+  }
+
+  function browseCategory(next: ListingCategory): void {
+    clearAll();
+    setCategory(next);
+  }
+
+  const activeFilters: ActiveFilter[] = [];
+  if (category) {
+    activeFilters.push({ key: "category", label: CATEGORY_LABELS[category], clear: () => resetToFirstPage(setCategory)("") });
+  }
+  if (condition) {
+    activeFilters.push({
+      key: "condition",
+      label: `${CONDITION_LABELS[condition]} condition`,
+      clear: () => resetToFirstPage(setCondition)(""),
+    });
+  }
+  if (minPrice || maxPrice) {
+    const label = minPrice && maxPrice ? `$${minPrice}–$${maxPrice}` : minPrice ? `From $${minPrice}` : `Up to $${maxPrice}`;
+    activeFilters.push({
+      key: "price",
+      label,
+      clear: () => {
+        setMinPrice("");
+        setMaxPrice("");
+        setPage(1);
+      },
+    });
+  }
+  const hasSearch = debouncedSearch.trim().length > 0;
+  const isNarrowed = hasSearch || activeFilters.length > 0;
+  const total = query.data?.total;
+
+  const filterFields = (
+    <FilterFields
+      category={category}
+      condition={condition}
+      minPrice={minPrice}
+      maxPrice={maxPrice}
+      onCategoryChange={resetToFirstPage(setCategory)}
+      onConditionChange={resetToFirstPage(setCondition)}
+      onMinPriceChange={resetToFirstPage(setMinPrice)}
+      onMaxPriceChange={resetToFirstPage(setMaxPrice)}
+    />
+  );
+
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Browse books"
-        description="Search a growing shelf of second-hand books listed directly by their owners."
-      />
+      <header>
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-h1">Browse books</h1>
+        <p className="mt-1.5 text-base text-ink-muted">Second-hand books, listed directly by the readers selling them.</p>
+      </header>
 
       <form
-        className="animate-fade-up flex flex-col gap-4 rounded-2xl border border-border bg-white p-4 sm:p-5"
         role="search"
-        aria-label="Filter listings"
+        aria-label="Filter books"
         onSubmit={(event) => event.preventDefault()}
+        className="flex flex-col gap-4 border-y border-border py-4"
       >
-        <Input
-          label="Search"
-          icon={Search}
-          placeholder="Title or author"
-          value={search}
-          onChange={(e) => resetToFirstPage(setSearch)(e.target.value)}
-        />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Select
-            label="Category"
-            placeholder="Any category"
-            options={CATEGORY_OPTIONS}
-            value={category}
-            onChange={(e) => resetToFirstPage(setCategory)(e.target.value as ListingCategory | "")}
-          />
-          <Select
-            label="Condition"
-            placeholder="Any condition"
-            options={CONDITION_OPTIONS}
-            value={condition}
-            onChange={(e) => resetToFirstPage(setCondition)(e.target.value as ListingCondition | "")}
-          />
-          <Input
-            label="Min price"
-            type="number"
-            min={0}
-            value={minPrice}
-            onChange={(e) => resetToFirstPage(setMinPrice)(e.target.value)}
-          />
-          <Input
-            label="Max price"
-            type="number"
-            min={0}
-            value={maxPrice}
-            onChange={(e) => resetToFirstPage(setMaxPrice)(e.target.value)}
-          />
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Input
+              label="Search"
+              hideLabel
+              type="search"
+              icon={Search}
+              placeholder="Title or author"
+              value={search}
+              onChange={(e) => resetToFirstPage(setSearch)(e.target.value)}
+            />
+          </div>
+          <Button
+            variant="secondary"
+            className="min-h-11 sm:hidden"
+            aria-haspopup="dialog"
+            onClick={() => setIsFilterSheetOpen(true)}
+          >
+            <SlidersHorizontal aria-hidden="true" className="size-4" />
+            Filters{activeFilters.length > 0 && ` (${activeFilters.length})`}
+          </Button>
+        </div>
+        <div className="hidden flex-wrap items-end gap-x-4 gap-y-3 sm:flex">
+          {filterFields}
+          {activeFilters.length > 0 && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="min-h-11 px-1 text-sm font-medium text-moss-700 underline-offset-4 hover:underline"
+            >
+              Clear all
+            </button>
+          )}
         </div>
       </form>
 
-      {query.data && (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <p className="text-sm text-ink-muted" aria-live="polite">
-          {query.data.total} {query.data.total === 1 ? "book" : "books"} found
+          {total !== undefined && `${total} ${total === 1 ? "book" : "books"}`}
         </p>
-      )}
+        {activeFilters.map((filter) => (
+          <button
+            key={filter.key}
+            type="button"
+            onClick={filter.clear}
+            aria-label={`Remove filter: ${filter.label}`}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border-strong px-3 text-sm text-ink transition-colors hover:border-ink-soft hover:bg-paper-muted sm:min-h-9"
+          >
+            {filter.label}
+            <X aria-hidden="true" className="size-3.5 text-ink-muted" />
+          </button>
+        ))}
+      </div>
 
       <QueryState
         isLoading={query.isPending}
         error={query.error}
-        isEmpty={query.data?.items.length === 0}
-        loadingSkeleton={<ListingGridSkeleton />}
-        emptyState={{
-          icon: BookOpen,
-          title: "No books match your filters",
-          description: "Try a broader search term or clear a filter to see more results.",
-        }}
+        loadingSkeleton={<ListingGridSkeleton count={10} />}
       >
-        {/* No entrance animation here (Phase 3 motion pass) — this grid
-            remounts on every search keystroke, filter, and page change;
-            see `ListingCard`'s own doc comment. Same reasoning covers the
-            featured entry above it. */}
-        {query.data && query.data.items.length >= 5 ? (
-          <>
-            <FeaturedEntry listing={query.data.items[0]} />
-            <div className="grid grid-cols-2 gap-4 pt-8 sm:grid-cols-3 lg:grid-cols-4">
-              {query.data.items.slice(1).map((listing) => (
+        {query.data && query.data.items.length === 0 ? (
+          <NoResults isNarrowed={isNarrowed} onClearAll={clearAll} onBrowseCategory={browseCategory} />
+        ) : (
+          <div className={cn("flex flex-col gap-10 transition-opacity", query.isPlaceholderData && "opacity-60")}>
+            <div className={LISTING_GRID_CLASSES}>
+              {query.data?.items.map((listing) => (
                 <ListingCard key={listing.id} listing={listing} />
               ))}
             </div>
-          </>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {query.data?.items.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
-            ))}
+            {isNarrowed && total !== undefined && total <= FEW_RESULTS && (
+              <p className="border-t border-border pt-6 text-sm text-ink-muted">
+                Only {total} {total === 1 ? "book matches" : "books match"}.{" "}
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="font-medium text-moss-700 underline underline-offset-4 hover:text-moss-600"
+                >
+                  Broaden your search
+                </button>{" "}
+                to see everything on the shelf.
+              </p>
+            )}
+            {query.data && (
+              <Pagination page={page} pageSize={PAGE_SIZE} total={query.data.total} onPageChange={setPage} />
+            )}
           </div>
         )}
-        {query.data && (
-          <Pagination
-            page={page}
-            pageSize={PAGE_SIZE}
-            total={query.data.total}
-            onPageChange={setPage}
-          />
-        )}
       </QueryState>
+
+      <Modal
+        variant="sheet"
+        isOpen={isFilterSheetOpen}
+        onClose={() => setIsFilterSheetOpen(false)}
+        title="Filter books"
+      >
+        <div className="flex flex-col gap-4">{filterFields}</div>
+        <div className="mt-6 flex gap-3">
+          <Button variant="secondary" className="min-h-11 flex-1" disabled={activeFilters.length === 0} onClick={clearFilters}>
+            Clear all
+          </Button>
+          <Button className="min-h-11 flex-1" onClick={() => setIsFilterSheetOpen(false)}>
+            {total === undefined ? "Show books" : `Show ${total} ${total === 1 ? "book" : "books"}`}
+          </Button>
+        </div>
+      </Modal>
     </div>
+  );
+}
+
+interface FilterFieldsProps {
+  category: ListingCategory | "";
+  condition: ListingCondition | "";
+  minPrice: string;
+  maxPrice: string;
+  onCategoryChange: (value: ListingCategory | "") => void;
+  onConditionChange: (value: ListingCondition | "") => void;
+  onMinPriceChange: (value: string) => void;
+  onMaxPriceChange: (value: string) => void;
+}
+
+/** Category · Condition · Price, shared by the inline row and the phone
+ * sheet. Each field keeps a visible label; the two price inputs share a
+ * visible "Price" legend and carry their own accessible names. */
+function FilterFields(props: FilterFieldsProps): React.JSX.Element {
+  return (
+    <>
+      <div className="sm:w-52">
+        <Select
+          label="Category"
+          placeholder="Any category"
+          options={CATEGORY_OPTIONS}
+          value={props.category}
+          onChange={(e) => props.onCategoryChange(e.target.value as ListingCategory | "")}
+        />
+      </div>
+      <div className="sm:w-44">
+        <Select
+          label="Condition"
+          placeholder="Any condition"
+          options={CONDITION_OPTIONS}
+          value={props.condition}
+          onChange={(e) => props.onConditionChange(e.target.value as ListingCondition | "")}
+        />
+      </div>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1.5 text-sm font-medium text-ink">Price</legend>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 sm:w-24 sm:flex-none">
+            <Input
+              label="Minimum price"
+              hideLabel
+              type="number"
+              inputMode="decimal"
+              min={0}
+              placeholder="Min"
+              value={props.minPrice}
+              onChange={(e) => props.onMinPriceChange(e.target.value)}
+            />
+          </div>
+          <span aria-hidden="true" className="text-ink-soft">
+            –
+          </span>
+          <div className="flex-1 sm:w-24 sm:flex-none">
+            <Input
+              label="Maximum price"
+              hideLabel
+              type="number"
+              inputMode="decimal"
+              min={0}
+              placeholder="Max"
+              value={props.maxPrice}
+              onChange={(e) => props.onMaxPriceChange(e.target.value)}
+            />
+          </div>
+        </div>
+      </fieldset>
+    </>
+  );
+}
+
+interface NoResultsProps {
+  isNarrowed: boolean;
+  onClearAll: () => void;
+  onBrowseCategory: (category: ListingCategory) => void;
+}
+
+/** Zero results is a dead end only if it offers no way out: this states
+ * plainly that nothing matched, offers to clear everything (the active
+ * filters themselves are listed, removable, just above), and lists the six
+ * real categories as a fresh starting point. With no search or filters at
+ * all, zero results means the marketplace is genuinely empty, and says so. */
+function NoResults({ isNarrowed, onClearAll, onBrowseCategory }: NoResultsProps): React.JSX.Element {
+  if (!isNarrowed) {
+    return (
+      <section className="flex max-w-xl flex-col gap-3 py-6">
+        <h2 className="font-serif text-2xl font-semibold text-ink">The shelf is empty</h2>
+        <p className="text-ink-muted">No one has listed a book yet.</p>
+        <Link to="/listings/new" className="w-fit font-medium text-moss-700 underline underline-offset-4 hover:text-moss-600">
+          List the first book
+        </Link>
+      </section>
+    );
+  }
+
+  return (
+    <section className="flex max-w-xl flex-col gap-5 py-6">
+      <div>
+        <h2 className="font-serif text-2xl font-semibold text-ink">No books match your filters</h2>
+        <p className="mt-2 text-ink-muted">Try a shorter search term, or remove a filter above.</p>
+      </div>
+      <div>
+        <Button variant="secondary" onClick={onClearAll}>
+          Clear search and filters
+        </Button>
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-ink">Or start from a category</h3>
+        <ul className="mt-1 flex flex-wrap gap-x-5">
+          {CATEGORIES.map((category) => (
+            <li key={category}>
+              <button
+                type="button"
+                onClick={() => onBrowseCategory(category)}
+                className="min-h-11 text-sm font-medium text-moss-700 underline-offset-4 hover:underline"
+              >
+                {CATEGORY_LABELS[category]}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }

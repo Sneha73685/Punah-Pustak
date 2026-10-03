@@ -3,12 +3,10 @@ import { describe, expect, it } from "vitest";
 import indexCss from "../index.css?raw";
 
 /**
- * A11Y-002 / WCAG 2.1 AA regression guard for the design tokens found to
- * fail contrast during the frontend-redesign remediation: `--color-ink-soft`
- * (used as real content text — `ListingCard`'s category/seller line,
- * `Footer`'s copyright line, `ListingDetailPage`'s "No image available",
- * `ImageUploadField`'s "Photo limit reached") and `--color-gold-600`
- * (`Badge`'s "warning" tone text, on `--color-gold-50`).
+ * A11Y-002 / WCAG 2.1 AA regression guard for the design tokens used as
+ * real content text: `--color-ink-soft` (labels, footer copyright),
+ * `--color-danger-600` (errors, destructive badges), `--color-clay-600`
+ * (condition), and the paper type set on every no-photo cloth board.
  *
  * This reads the actual token values out of `src/index.css` — the single
  * source of truth those tokens are defined in, imported via Vite's `?raw`
@@ -72,14 +70,34 @@ describe("WCAG AA contrast — design tokens used as real content text", () => {
     }
   });
 
-  it("gold-600 meets 4.5:1 against gold-50 (Badge's warning tone)", () => {
-    const goldText = readToken("gold-600");
-    const goldBg = readToken("gold-50");
+  it("danger-600 meets 4.5:1 on paper (errors), on danger-50 (Badge), and under white button text", () => {
+    const danger = readToken("danger-600");
+    for (const [name, bg] of [
+      ["paper", readToken("paper")],
+      ["danger-50", readToken("danger-50")],
+      ["white", "#ffffff"],
+    ] as const) {
+      expect(contrastRatio(danger, bg), `danger-600 (${danger}) vs ${name} (${bg})`).toBeGreaterThanOrEqual(
+        WCAG_AA_NORMAL_TEXT,
+      );
+    }
+  });
 
-    expect(
-      contrastRatio(goldText, goldBg),
-      `gold-600 (${goldText}) vs gold-50 (${goldBg})`,
-    ).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+  it("clay-600 (condition) meets 4.5:1 on paper and paper-muted", () => {
+    const clay = readToken("clay-600");
+    for (const bg of [readToken("paper"), readToken("paper-muted")]) {
+      expect(contrastRatio(clay, bg)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+    }
+  });
+
+  it("paper-coloured type meets 4.5:1 on every no-photo cloth board", () => {
+    const paper = readToken("paper");
+    for (const cloth of ["fiction", "non-fiction", "academic", "children", "comics", "other"]) {
+      const board = readToken(`cloth-${cloth}`);
+      expect(contrastRatio(paper, board), `paper vs cloth-${cloth} (${board})`).toBeGreaterThanOrEqual(
+        WCAG_AA_NORMAL_TEXT,
+      );
+    }
   });
 
   it("ink-muted (never regressed, kept here as a control) still meets 4.5:1", () => {

@@ -27,15 +27,6 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
    * class list sidesteps by construction).
    */
   icon?: ComponentType<LucideProps>;
-  /**
-   * "ghost" drops the default white fill/border so the field can sit
-   * flush inside a caller's own elevated container (the homepage hero
-   * search panel) without a redundant nested border. A dedicated variant
-   * rather than a `className` override for the same reason `icon` is a
-   * prop, not a `pl-*` override — the caller can't reliably beat this
-   * component's own `bg-white`/`border-border-strong` from outside it.
-   */
-  variant?: "default" | "ghost";
 }
 
 /**
@@ -45,7 +36,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
  * conveyed by color (a red border) alone.
  */
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, hint, id, className, required, hideLabel = false, icon: Icon, variant = "default", ...rest },
+  { label, error, hint, id, className, required, hideLabel = false, icon: Icon, ...rest },
   ref,
 ) {
   const generatedId = useId();
@@ -58,7 +49,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       <label htmlFor={inputId} className={cn("text-sm font-medium text-ink", hideLabel && "sr-only")}>
         {label}
         {required && (
-          <span aria-hidden="true" className="ml-0.5 text-clay-600">
+          <span aria-hidden="true" className="ml-0.5 text-danger-600">
             *
           </span>
         )}
@@ -75,18 +66,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           id={inputId}
           required={required}
           aria-invalid={error ? true : undefined}
-          aria-describedby={cn(error && errorId, hint && hintId) || undefined}
+          aria-describedby={cn(error && errorId, hint && !error && hintId) || undefined}
           className={cn(
-            "w-full rounded-lg py-2.5 text-sm text-ink placeholder:text-ink-soft",
+            "min-h-11 w-full rounded-lg py-2.5 text-base text-ink placeholder:text-ink-soft sm:text-sm",
             Icon ? "pl-10 pr-3" : "px-3",
             "transition-[box-shadow,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss-500/40",
             "disabled:cursor-not-allowed disabled:bg-paper-muted disabled:text-ink-muted",
-            variant === "ghost" ? "border border-transparent bg-transparent" : "border bg-white",
-            error
-              ? "border-clay-500"
-              : variant === "ghost"
-                ? "focus-visible:border-moss-500"
-                : "border-border-strong hover:border-ink-soft/60 focus-visible:border-moss-500",
+            "border bg-white",
+            error ? "border-danger-600" : "border-border-strong hover:border-ink-soft/60 focus-visible:border-moss-500",
             className,
           )}
           {...rest}
@@ -98,7 +85,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         </p>
       )}
       {error && (
-        <p id={errorId} role="alert" className="text-xs font-medium text-clay-600">
+        <p id={errorId} role="alert" className="text-xs font-medium text-danger-600">
           {error}
         </p>
       )}

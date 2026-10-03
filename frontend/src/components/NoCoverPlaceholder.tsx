@@ -1,60 +1,103 @@
 import { cn } from "@/lib/cn";
+import type { ListingCategory } from "@/api/types";
 
-/**
- * P1A ("no-cover visual system"): a plain line-drawn book — the shape of a
- * cover carrying only a title and author line, the way an unillustrated
- * literary paperback actually looks — standing in for "this listing has no
- * cover photograph." Deliberately not a broken-image glyph: `currentColor`
- * only, `ink-soft`-toned by the components that use it, so it reads as a
- * quiet, considered absence rather than an error. Exported separately from
- * `NoCoverPlaceholder` below so a caller that needs a functional action
- * icon instead of a passive-fallback caption (see `ImageUploadField`'s own
- * reasoning for NOT using this glyph) could still borrow the mark alone.
- */
-export function BookCoverGlyph({ className }: { className?: string }): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 40 52"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="3" y="2" width="34" height="48" rx="2.5" fill="currentColor" fillOpacity="0.04" />
-      <line x1="11" y1="21" x2="29" y2="21" strokeWidth="2.25" />
-      <line x1="14" y1="28" x2="26" y2="28" strokeWidth="1.5" opacity="0.7" />
-    </svg>
-  );
-}
+/** One cloth board per real category, so a shelf of photo-less listings
+ * reads as varied stock rather than a row of identical blanks. Literal
+ * class strings (not built at runtime) so Tailwind can see them. */
+const CLOTH_CLASSES: Record<ListingCategory, string> = {
+  fiction: "bg-cloth-fiction",
+  non_fiction: "bg-cloth-non-fiction",
+  academic_textbook: "bg-cloth-academic",
+  children: "bg-cloth-children",
+  comics_graphic_novels: "bg-cloth-comics",
+  other: "bg-cloth-other",
+};
+
+export type NoCoverSize = "card" | "detail" | "thumb";
 
 export interface NoCoverPlaceholderProps {
+  title: string;
+  author: string;
+  category: ListingCategory;
+  size?: NoCoverSize;
+  /**
+   * Whether the "No photo" tag is exposed to assistive tech here. A caller
+   * that already says so in its own text (e.g. a card announcing it after
+   * the title) turns this off, so it isn't read first and run into the title.
+   */
+  announce?: boolean;
   className?: string;
-  iconClassName?: string;
 }
 
 /**
- * The shared "no cover photo" fallback — one visual language reused by
- * `ListingCard` (thumbnail) and `ListingDetailPage` (large detail image),
- * rather than each hand-rolling its own icon+caption. Copy says "no cover
- * photo," never "no image" — this is about a book's cover specifically,
- * and the wording (plus the drawn book mark, plus the calm ink-soft tone)
- * is deliberately never alarming: this states an absence, not an error.
- * No category caption here by design — every caller already shows the
- * listing's category right next to this placeholder (the card's metadata
- * line, the detail page's Badge row), so repeating it here would just be
- * duplicated information, not a new signal.
+ * The no-photo state as a typographic cover: the listing's own title and
+ * author set on a plain cloth board, the way an unillustrated secondhand
+ * edition actually looks. It is built only from real listing data — no
+ * invented artwork — and always carries a visible "No photo" tag so it can
+ * never be mistaken for the publisher's cover or for a photo of this copy.
+ *
+ * The board's title/author are drawn as CSS generated content (from
+ * `data-text`) inside an `aria-hidden` box: every caller already renders
+ * the same title and author as real text right beside the cover, so
+ * putting them in the DOM a second time would make screen readers say
+ * them twice and make the browser's find-in-page match every title twice.
+ * The "No photo" tag stays real, readable text, since that is information
+ * the surrounding text doesn't carry.
+ *
+ * Type scales with the board via container-query units, so the same
+ * component works from a 2-column phone grid up to the detail page. At
+ * `thumb` size (inventory rows, admin tables) the board is too small to
+ * set type legibly, so it shows the cloth and rule only.
  */
 export function NoCoverPlaceholder({
+  title,
+  author,
+  category,
+  size = "card",
+  announce = true,
   className,
-  iconClassName,
 }: NoCoverPlaceholderProps): React.JSX.Element {
+  const isThumb = size === "thumb";
+
   return (
-    <div className={cn("flex h-full w-full flex-col items-center justify-center gap-2 text-ink-soft", className)}>
-      <BookCoverGlyph className={cn("size-9", iconClassName)} />
-      <span className="text-xs font-medium">No cover photo</span>
+    <div
+      className={cn(
+        "@container relative aspect-[2/3] w-full overflow-hidden rounded-xs text-paper shadow-object",
+        CLOTH_CLASSES[category],
+        className,
+      )}
+    >
+      <div
+        aria-hidden="true"
+        className={cn(
+          "absolute flex flex-col items-center border border-paper/35 text-center",
+          isThumb ? "inset-[3px]" : "inset-[6%] px-[8%] pt-[18%]",
+        )}
+      >
+        {!isThumb && (
+          <>
+            <span
+              data-text={title}
+              className="line-clamp-4 font-serif text-[clamp(13px,10cqw,30px)] font-semibold leading-[1.15] [overflow-wrap:anywhere] before:content-[attr(data-text)]"
+            />
+            <span className="my-[7%] h-px w-1/4 bg-paper/50" />
+            <span
+              data-text={author}
+              className="line-clamp-2 px-[0.15em] font-serif text-[clamp(12px,7cqw,20px)] italic leading-snug text-paper/90 before:content-[attr(data-text)]"
+            />
+          </>
+        )}
+      </div>
+      {isThumb ? (
+        announce && <span className="sr-only">No photo</span>
+      ) : (
+        <span
+          aria-hidden={announce ? undefined : true}
+          className="absolute inset-x-0 bottom-[9%] text-center text-xs font-medium tracking-wide text-paper/90"
+        >
+          No photo
+        </span>
+      )}
     </div>
   );
 }

@@ -20,6 +20,18 @@ export const CONDITION_LABELS: Record<ListingCondition, string> = {
   poor: "Poor",
 };
 
+/** What each condition grade means, shown beside the grade on the detail
+ * page and under the condition picker when listing a book, so buyer and
+ * seller read the same definition. These describe the app's own grading
+ * scale; they don't assert anything about a particular copy. */
+export const CONDITION_DESCRIPTIONS: Record<ListingCondition, string> = {
+  new: "Unread. No marks, wear, or damage.",
+  like_new: "Read, but shows almost no wear.",
+  good: "Normal signs of reading, like a creased spine or shelf wear. Complete and clean.",
+  fair: "Heavily read: worn cover, markings, or yellowed pages. Complete and readable.",
+  poor: "Significant wear or damage. Check the description before buying.",
+};
+
 export const STATUS_LABELS: Record<ListingStatus, string> = {
   available: "Available",
   sold: "Sold",

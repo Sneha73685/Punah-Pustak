@@ -1,5 +1,10 @@
 import { useState } from "react";
 
+import { MD_UP, useMediaQuery } from "@/hooks/useMediaQuery";
+
+import { useAuth } from "@/auth/AuthContext";
+import { adminActionClasses } from "@/components/AdminControls";
+
 import { AdminNav } from "@/components/AdminNav";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -18,10 +23,16 @@ import type { AdminUserPublic } from "@/api/types";
 
 const PAGE_SIZE = 20;
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
 /** FR-040/041/045, UC-6/UC-7: list every user with paginated status, and
  * the three admin-only mutating actions (suspend, reinstate, reset
  * password) — each behind its own confirmation modal (FE-040). */
 export function AdminUsersPage(): React.JSX.Element {
+  const isWide = useMediaQuery(MD_UP);
+  const { state: authState } = useAuth();
   const [page, setPage] = useState(1);
   const query = useAdminUsers({ page, pageSize: PAGE_SIZE });
   const suspendMutation = useSuspendUser();
@@ -80,6 +91,64 @@ export function AdminUsersPage(): React.JSX.Element {
     setTemporaryPassword(null);
   }
 
+  // The user list carries no `role`, so other admins can't be told apart
+  // from regular users here (the API rejects actions on them with a 403,
+  // surfaced in the banner below). The one admin we *can* identify is the
+  // signed-in one, so their own row offers no actions.
+  const currentUserId = authState.status === "authenticated" ? authState.user.id : null;
+
+  function renderActions(user: AdminUserPublic): React.ReactNode {
+    if (user.id === currentUserId) {
+      return null;
+    }
+    return (
+      <>
+        {user.is_active ? (
+          <button
+            type="button"
+            className={adminActionClasses()}
+            onClick={() => {
+              setActionError(null);
+              setSuspendTarget(user);
+            }}
+          >
+            Suspend
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={adminActionClasses()}
+            disabled={reinstateMutation.isPending}
+            onClick={() => void handleReinstate(user)}
+          >
+            Reinstate
+          </button>
+        )}
+        <button
+          type="button"
+          className={adminActionClasses()}
+          onClick={() => {
+            setActionError(null);
+            setResetTarget(user);
+          }}
+        >
+          Reset password
+        </button>
+      </>
+    );
+  }
+
+  function renderStatus(user: AdminUserPublic): React.JSX.Element {
+    return (
+      <span className="inline-flex items-center gap-2">
+        <Badge tone={user.is_active ? "success" : "danger"} dot>
+          {user.is_active ? "Active" : "Suspended"}
+        </Badge>
+        {user.id === currentUserId && <span className="text-xs font-medium text-ink-muted">You</span>}
+      </span>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Users" description="Manage accounts, suspensions, and password resets." />
@@ -89,81 +158,64 @@ export function AdminUsersPage(): React.JSX.Element {
           (it isn't a destructive action, FE-040), so this banner is the one
           place all three actions' errors can surface. */}
       {actionError && (
-        <p role="alert" className="text-sm font-medium text-clay-600">
+        <p role="alert" className="text-sm font-medium text-danger-600">
           {actionError}
         </p>
       )}
 
       <QueryState isLoading={query.isPending} error={query.error}>
-        {/* No entrance animation (Phase 3 motion pass) — an admin
-            re-paginating/filtering this table wants speed and scanning,
-            not a reveal replaying on every click. */}
-        <div className="overflow-hidden rounded-2xl border border-border bg-white">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border bg-paper-muted text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                  <th className="px-4 py-3 font-semibold">Email</th>
-                  <th className="px-4 py-3 font-semibold">Display name</th>
-                  <th className="px-4 py-3 font-semibold">Created</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Actions</th>
+        {/* A dense table from `md` up, label/value cards on phones — a
+            five-column table at 375px is a sideways scroll with the actions
+            off-screen. Chosen in JS so only one copy is ever in the DOM. */}
+        {isWide ? (
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border-strong text-xs font-semibold uppercase tracking-wide text-ink-soft">
+                <th className="px-3 py-2 font-semibold">Email</th>
+                <th className="px-3 py-2 font-semibold">Display name</th>
+                <th className="px-3 py-2 font-semibold">Created</th>
+                <th className="px-3 py-2 font-semibold">Status</th>
+                <th className="px-3 py-2 text-right font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {query.data?.items.map((user) => (
+                <tr key={user.id} className="border-b border-border transition-colors hover:bg-paper-muted/60">
+                  <td className="px-3 py-1.5 text-ink">{user.email}</td>
+                  <td className="px-3 py-1.5 text-ink">{user.display_name}</td>
+                  <td className="px-3 py-1.5 text-ink-muted lining-nums tabular-nums">{formatDate(user.created_at)}</td>
+                  <td className="px-3 py-1.5">
+                    {renderStatus(user)}
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <div className="flex justify-end gap-1">{renderActions(user)}</div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {query.data?.items.map((user) => (
-                  <tr
-                    key={user.id}
-                    className="border-b border-border transition-colors last:border-0 hover:bg-paper-muted/60"
-                  >
-                    <td className="px-4 py-3 text-ink">{user.email}</td>
-                    <td className="px-4 py-3 text-ink">{user.display_name}</td>
-                    <td className="px-4 py-3 text-ink-muted">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge tone={user.is_active ? "success" : "danger"} dot>
-                        {user.is_active ? "Active" : "Suspended"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        {user.is_active ? (
-                          <Button
-                            variant="danger"
-                            onClick={() => {
-                              setActionError(null);
-                              setSuspendTarget(user);
-                            }}
-                          >
-                            Suspend
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="secondary"
-                            isLoading={reinstateMutation.isPending}
-                            onClick={() => void handleReinstate(user)}
-                          >
-                            Reinstate
-                          </Button>
-                        )}
-                        <Button
-                          variant="secondary"
-                          onClick={() => {
-                            setActionError(null);
-                            setResetTarget(user);
-                          }}
-                        >
-                          Reset password
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <ul className="divide-y divide-border border-y border-border">
+            {query.data?.items.map((user) => (
+              <li key={user.id} className="py-3">
+                <dl className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                  <dt className="text-ink-muted">Email</dt>
+                  <dd className="break-words text-ink">{user.email}</dd>
+                  <dt className="text-ink-muted">Name</dt>
+                  <dd className="text-ink">{user.display_name}</dd>
+                  <dt className="text-ink-muted">Created</dt>
+                  <dd className="text-ink">{formatDate(user.created_at)}</dd>
+                  <dt className="text-ink-muted">Status</dt>
+                  <dd>
+                    {renderStatus(user)}
+                  </dd>
+                </dl>
+                <div className="-ml-2 mt-1 flex flex-wrap gap-1">{renderActions(user)}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+
         {query.data && (
           <Pagination page={page} pageSize={PAGE_SIZE} total={query.data.total} onPageChange={setPage} />
         )}
@@ -187,7 +239,7 @@ export function AdminUsersPage(): React.JSX.Element {
           />
         </div>
         {actionError && (
-          <p role="alert" className="mt-2 text-sm font-medium text-clay-600">
+          <p role="alert" className="mt-2 text-sm font-medium text-danger-600">
             {actionError}
           </p>
         )}
@@ -231,7 +283,7 @@ export function AdminUsersPage(): React.JSX.Element {
               login.
             </p>
             {actionError && (
-              <p role="alert" className="mt-2 text-sm font-medium text-clay-600">
+              <p role="alert" className="mt-2 text-sm font-medium text-danger-600">
                 {actionError}
               </p>
             )}

@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 
 import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { PasswordChangeForm } from "@/components/PasswordChangeForm";
 import { QueryState } from "@/components/QueryState";
-import { StatStrip } from "@/components/StatStrip";
 import { useMyListingsSummary } from "@/hooks/useListings";
 import { useUpdateOwnProfile } from "@/hooks/useProfile";
 import { toFormErrors } from "@/lib/formErrors";
@@ -49,12 +50,15 @@ export function ProfilePage(): React.JSX.Element | null {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <div className="animate-fade-up flex items-center gap-4">
-        <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-moss-500 font-serif text-2xl font-semibold text-white shadow-card ring-4 ring-white">
+      <div className="flex items-center gap-4">
+        <span
+          aria-hidden="true"
+          className="flex size-14 shrink-0 items-center justify-center rounded-full bg-paper-muted font-serif text-2xl font-semibold text-ink"
+        >
           {initial}
         </span>
         <div>
-          <h1 className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-h1">
             {state.user.display_name}
           </h1>
           <p className="text-sm text-ink-muted">{state.user.email}</p>
@@ -62,8 +66,8 @@ export function ProfilePage(): React.JSX.Element | null {
       </div>
 
       <div className="flex flex-col divide-y divide-border border-t border-border">
-        <section className="animate-fade-up flex flex-col gap-4 py-8">
-          <h2 className="font-serif text-lg font-semibold text-ink">Account details</h2>
+        <section className="flex flex-col gap-4 py-8">
+          <h2 className="text-base font-semibold text-ink">Account details</h2>
           <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
             <Input label="Email" value={state.user.email} disabled hint="Email cannot be changed." />
             <Input
@@ -74,36 +78,48 @@ export function ProfilePage(): React.JSX.Element | null {
               error={fieldErrors.display_name}
             />
             {formError && (
-              <p role="alert" className="text-sm font-medium text-clay-600">
+              <p role="alert" className="text-sm font-medium text-danger-600">
                 {formError}
               </p>
             )}
-            {saved && <p className="text-sm font-medium text-moss-600">Saved.</p>}
+            {saved && (
+              <p role="status" className="text-sm font-medium text-moss-700">
+                Saved.
+              </p>
+            )}
             <Button type="submit" isLoading={updateMutation.isPending} className="self-start">
               Save changes
             </Button>
           </form>
         </section>
 
-        <section className="animate-fade-up flex flex-col gap-4 py-8" style={{ animationDelay: "60ms" }}>
-          <h2 className="font-serif text-lg font-semibold text-ink">Your listings</h2>
+        <section className="flex flex-col gap-3 py-8">
+          <h2 className="text-base font-semibold text-ink">Your listings</h2>
           <QueryState isLoading={summaryQuery.isPending} error={summaryQuery.error}>
             {summaryQuery.data && (
-              <StatStrip
-                items={[
-                  { label: "Available", value: summaryQuery.data.available, tone: "accent" },
-                  { label: "Sold", value: summaryQuery.data.sold },
-                  { label: "Deleted", value: summaryQuery.data.deleted, tone: "muted" },
-                ]}
-              />
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-ink">
+                <span className="lining-nums tabular-nums">
+                  {summaryQuery.data.available} available &middot; {summaryQuery.data.sold} sold
+                  {summaryQuery.data.deleted > 0 && <> &middot; {summaryQuery.data.deleted} removed</>}
+                </span>
+                <Link
+                  to="/my-listings"
+                  className="inline-flex min-h-11 items-center gap-1 font-medium text-moss-700 underline-offset-4 hover:underline"
+                >
+                  Manage listings
+                  <ArrowRight aria-hidden="true" className="size-4" />
+                </Link>
+              </p>
             )}
           </QueryState>
         </section>
 
-        <section className="animate-fade-up flex flex-col gap-4 py-8" style={{ animationDelay: "120ms" }}>
-          <h2 className="font-serif text-lg font-semibold text-ink">Change password</h2>
+        <section className="flex flex-col gap-4 py-8">
+          <h2 className="text-base font-semibold text-ink">Change password</h2>
           {passwordChanged ? (
-            <p className="text-sm font-medium text-moss-600">Password changed.</p>
+            <p role="status" className="text-sm font-medium text-moss-700">
+              Password changed.
+            </p>
           ) : (
             <PasswordChangeForm onSuccess={() => setPasswordChanged(true)} />
           )}

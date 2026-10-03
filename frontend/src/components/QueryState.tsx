@@ -66,7 +66,7 @@ export function QueryState({
 
   if (error) {
     return (
-      <p role="alert" className="py-8 text-center text-sm font-medium text-clay-600">
+      <p role="alert" className="py-8 text-center text-sm font-medium text-danger-600">
         {getErrorMessage(error)}
       </p>
     );

@@ -1,87 +1,79 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Leaf, PlusCircle, Recycle, Search, Wallet } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 
 import { BookCover } from "@/components/BookCover";
-import { Button } from "@/components/Button";
-import { BookCoverGlyph } from "@/components/NoCoverPlaceholder";
+import { Button, buttonClasses } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { ListingCard } from "@/components/ListingCard";
-import { ListingGridSkeleton } from "@/components/Skeleton";
 import { QueryState } from "@/components/QueryState";
-import { cn } from "@/lib/cn";
+import { ListingGridSkeleton, Skeleton } from "@/components/Skeleton";
 import { useBrowseListings } from "@/hooks/useListings";
-import type { ListingPublic } from "@/api/types";
+import { cn } from "@/lib/cn";
+import { CATEGORY_LABELS, formatPrice } from "@/lib/listingLabels";
+import type { ListingCategory, ListingPublic } from "@/api/types";
 
-/** No icons here deliberately (Phase 1B) — the step numerals themselves
- * are the section's visual anchor, not a third icon-badge pattern on the
- * same page as the hero pill and the value-prop list below. The sequence
- * is real information (list, then it's findable, then you meet), which is
- * the one case a numbered presentation earns its keep.
- *
- * Phase 3: the third step's numeral breaks from moss to clay — the
- * established "clay is the human/editorial accent" role (see `BookCover`
- * and the catalogue metadata treatment) applied here to the one step that
- * is itself a human moment (meeting the seller), not a system action. */
-const HOW_IT_WORKS = [
-  {
-    title: "List it",
-    description: "Snap a few photos, describe the book's condition, and set your price.",
-  },
-  {
-    title: "Find it",
-    description: "Search and filter by title, author, category, condition, or price.",
-  },
-  {
-    title: "Meet & exchange",
-    description: "Connect with the seller directly and hand off the book, off-platform.",
-  },
-];
-
-const VALUE_PROPS = [
-  {
-    icon: Leaf,
-    title: "Less waste",
-    description: "Every book resold is one less printed, shipped, or pulped from scratch.",
-  },
-  {
-    icon: Wallet,
-    title: "Fair prices",
-    description: "Buy and sell at a fraction of retail — good books deserve more than one reader.",
-  },
-  {
-    icon: Recycle,
-    title: "Built to circulate",
-    description: "A book's story doesn't end on your shelf. Pass it on when you're done.",
-  },
-];
-
+/** Newest listings, fetched once for both the hero shelf and "Just listed". */
+const FETCH_COUNT = 20;
+const SHELF_MAX = 5;
+/** Fewer than this many books would leave the hero shelf looking like an
+ * orphan rather than a shelf, so it isn't shown at all below it. */
+const SHELF_MIN = 3;
+const JUST_LISTED_MAX = 8;
 const STAGGER_MS = 60;
-const HERO_ITEM_COUNT = 3;
 
-/** FE-002: the app's real landing page at `/` — distinct from `/listings`
- * (Browse), per the brand direction of a marketplace visitors arrive at
- * before they browse. Renders real data via `useBrowseListings` (FR-001..
- * 004's existing query) rather than any hardcoded "featured" list; an empty
- * database gets a first-visit empty state instead of a blank section. */
+/** Home's grid tops out at 4 columns (2 rows of 4 on large screens) rather
+ * than the browse grid's 5, so eight books always fill whole rows. */
+const HOME_GRID_CLASSES =
+  "grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4";
+
+/** Cloth swatches shared with the no-photo covers, so a category's colour
+ * means the same thing here as on its photo-less books. */
+const CATEGORY_SPINE: Record<ListingCategory, string> = {
+  fiction: "bg-cloth-fiction",
+  non_fiction: "bg-cloth-non-fiction",
+  academic_textbook: "bg-cloth-academic",
+  children: "bg-cloth-children",
+  comics_graphic_novels: "bg-cloth-comics",
+  other: "bg-cloth-other",
+};
+const CATEGORIES = Object.keys(CATEGORY_LABELS) as ListingCategory[];
+
+const HOW_IT_WORKS = [
+  { title: "List it", description: "Add the title, author and condition, a photo if you have one, and your price." },
+  { title: "Find it", description: "Search by title or author, then narrow by category, condition and price." },
+  {
+    title: "Hand it over",
+    description: "Exchanges happen between readers, off the site. Punah-Pustak doesn't handle payments or delivery.",
+  },
+];
+
+/** Prefers listings with a real photo for the hero shelf, then fills any
+ * remaining places with photo-less ones (shown as typographic covers). */
+function pickShelf(items: ListingPublic[]): ListingPublic[] {
+  const withPhoto = items.filter((item) => item.images.length > 0);
+  const withoutPhoto = items.filter((item) => item.images.length === 0);
+  return [...withPhoto, ...withoutPhoto].slice(0, SHELF_MAX);
+}
+
+/**
+ * The homepage answers three questions in order: what this is (headline,
+ * one line, search), what's here right now (the newest books — real
+ * inventory, never a placeholder), and how it works. Everything shown is
+ * read from the listings API; nothing is featured, ranked or counted that
+ * the data doesn't support.
+ */
 export function HomePage(): React.JSX.Element {
   const navigate = useNavigate();
   const [heroSearch, setHeroSearch] = useState("");
-  // Phase 3: one extra page of results over what "Current arrivals" alone
-  // needed — the hero's own book arrangement and the grid below it draw
-  // from the same single fetch, split rather than duplicated, so the two
-  // newest listings a visitor sees are never shown to them twice on one
-  // page (see `HeroBookArrangement`'s own doc comment).
-  const featuredQuery = useBrowseListings({ page: 1, pageSize: 3 + 6 });
-  const items = featuredQuery.data?.items;
-  const heroItems = items?.slice(0, HERO_ITEM_COUNT);
-  // Only exclude the hero's own items from the grid once there's enough
-  // inventory that doing so still leaves a real grid behind (see
-  // `HeroBookArrangement`'s doc comment on not duplicating listings) — a
-  // marketplace with only 1-2 books total shows them in both places rather
-  // than making its only listings' titles invisible everywhere, since the
-  // hero arrangement itself never renders text, only the object.
-  const gridItems = items && items.length > HERO_ITEM_COUNT ? items.slice(HERO_ITEM_COUNT) : items;
+  const query = useBrowseListings({ page: 1, pageSize: FETCH_COUNT });
+
+  const items = query.data?.items ?? [];
+  const shelf = items.length >= SHELF_MIN ? pickShelf(items) : [];
+  // Strictly the newest books, even if some also stand on the hero shelf:
+  // skipping those would quietly make "Just listed" not the newest.
+  const justListed = items.slice(0, JUST_LISTED_MAX);
+  const isEmpty = query.data?.items.length === 0;
 
   function handleHeroSearch(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -90,251 +82,228 @@ export function HomePage(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-col gap-24 overflow-x-clip pb-8 sm:gap-28">
-      {/* Hero */}
-      <section className="relative isolate">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -inset-x-6 -top-24 -z-10 h-[520px] bg-[radial-gradient(60%_60%_at_20%_20%,rgba(63,107,82,0.10),transparent_65%),radial-gradient(45%_55%_at_85%_10%,rgba(181,87,58,0.08),transparent_60%)]"
-        />
-        <div className="grid grid-cols-1 items-center gap-10 pt-4 lg:grid-cols-[1.15fr_1fr] lg:gap-12">
-          <div className="animate-fade-up flex flex-col gap-6">
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-moss-50 px-3 py-1 text-xs font-medium text-moss-700">
-              <BookOpen aria-hidden="true" className="size-3.5" />
-              Peer-to-peer &middot; second-hand books
-            </span>
-            <h1 className="font-serif text-4xl font-semibold leading-[1.1] tracking-tight text-ink sm:text-5xl lg:text-6xl">
-              Give your books a <em className="text-clay-600 not-italic">second story</em>.
-            </h1>
-            <p className="max-w-md text-base leading-relaxed text-ink-muted sm:text-lg">
-              Punah-Pustak connects readers who are done with a book to readers who are just
-              starting theirs — buy and sell second-hand books directly, without a middleman.
-            </p>
-            <form
-              role="search"
-              aria-label="Search books"
-              onSubmit={handleHeroSearch}
-              className="flex max-w-md flex-col gap-2 rounded-2xl border border-border bg-white/80 p-2.5 shadow-lift backdrop-blur-sm sm:flex-row sm:items-center"
-            >
-              <div className="flex-1">
-                <Input
-                  label="Search books"
-                  hideLabel
-                  icon={Search}
-                  variant="ghost"
-                  placeholder="Search by title or author"
-                  value={heroSearch}
-                  onChange={(e) => setHeroSearch(e.target.value)}
-                />
-              </div>
-              <Button type="submit" className="sm:shrink-0">
-                <Search aria-hidden="true" className="size-4" />
-                Search
-              </Button>
-            </form>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="primary" onClick={() => navigate("/listings")}>
-                Browse Books
-              </Button>
-              <Button variant="secondary" onClick={() => navigate("/listings/new")}>
-                <PlusCircle aria-hidden="true" className="size-4" />
-                Sell a Book
-              </Button>
+    <div className="flex flex-col gap-16 pb-4 sm:gap-24">
+      <section className="grid grid-cols-1 gap-10 pt-2 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-14 lg:pt-6">
+        <div className="flex flex-col gap-5">
+          <h1 className="max-w-[14ch] text-4xl font-semibold leading-[1.05] tracking-tight text-ink sm:text-5xl lg:text-display">
+            Give your books a second story.
+          </h1>
+          <p className="max-w-md text-lg leading-relaxed text-ink-muted">
+            Buy and sell second-hand books directly with other readers.
+          </p>
+          <form role="search" aria-label="Search books" onSubmit={handleHeroSearch} className="flex max-w-md gap-2">
+            <div className="flex-1">
+              <Input
+                label="Search books"
+                hideLabel
+                type="search"
+                icon={Search}
+                placeholder="Title or author"
+                value={heroSearch}
+                onChange={(e) => setHeroSearch(e.target.value)}
+              />
             </div>
-          </div>
-
-          {/* Phase 3: real listings, not a vector illustration — see
-              `HeroBookArrangement`'s own doc comment for why, and for how
-              it degrades (never disappears) with zero cover photos. No
-              longer `hidden lg:block`: at `grid-cols-1` below `lg` this is
-              simply the grid's second row, giving the mobile hero its own
-              closing beat instead of Phase 0's dead gap under the CTAs. */}
-          {heroItems && heroItems.length > 0 && (
-            <div className="flex justify-center lg:justify-end">
-              <HeroBookArrangement items={heroItems} />
-            </div>
-          )}
+            <Button type="submit">Search</Button>
+          </form>
         </div>
+
+        <HeroShelf isLoading={query.isPending} shelf={shelf} isEmpty={isEmpty} hasError={Boolean(query.error)} />
       </section>
 
-      {/* Current arrivals — an editorial rail beside the grid, not a
-          centered heading on top of it. `animateEntrance` on the cards
-          below is deliberately opted in ONLY here (Phase 3 motion pass):
-          this is the one grid on the site whose mount is a genuine
-          "you've arrived at the homepage" moment, not the routine result
-          of typing into a search box or flipping a page — see
-          `ListingCard`'s own doc comment for why it defaults off. */}
-      <section className="flex flex-col gap-8 lg:grid lg:grid-cols-[240px_1fr] lg:gap-14">
-        <div className="flex flex-row items-end justify-between gap-4 border-b border-border pb-6 lg:flex-col lg:items-start lg:justify-start lg:border-b-0 lg:border-r lg:border-border lg:pb-0 lg:pr-8">
-          <div>
-            <h2 className="font-serif text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              Current arrivals
+      {/* On an empty marketplace the hero already says so; a second empty
+          section here would only repeat it. */}
+      {!isEmpty && (
+        <section aria-labelledby="just-listed-heading" className="flex flex-col gap-6">
+          <div className="flex items-baseline justify-between gap-4 border-b border-border pb-3">
+            <h2 id="just-listed-heading" className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+              Just listed
             </h2>
-            <p className="mt-2 max-w-[22ch] text-sm leading-relaxed text-ink-muted">
-              What just found its way onto the shelf.
-            </p>
+            <Link
+              to="/listings"
+              className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-moss-700 underline-offset-4 hover:underline"
+            >
+              Browse all
+              <ArrowRight aria-hidden="true" className="size-4" />
+            </Link>
           </div>
-          <Link
-            to="/listings"
-            className="shrink-0 text-sm font-medium text-moss-600 transition-colors hover:text-moss-700 hover:underline lg:mt-6"
+          <QueryState
+            isLoading={query.isPending}
+            error={query.error}
+            loadingSkeleton={<ListingGridSkeleton count={8} gridClassName={HOME_GRID_CLASSES} />}
           >
-            View all &rarr;
-          </Link>
-        </div>
-
-        <QueryState
-          isLoading={featuredQuery.isPending}
-          error={featuredQuery.error}
-          isEmpty={featuredQuery.data?.items.length === 0}
-          loadingSkeleton={<ListingGridSkeleton count={4} />}
-          emptyState={{
-            icon: BookOpen,
-            title: "No books listed yet",
-            description:
-              "Punah-Pustak is brand new here — be the first to give a book a second reader.",
-            action: (
-              <Button onClick={() => navigate("/listings/new")}>
-                <PlusCircle aria-hidden="true" className="size-4" />
-                Sell your first book
-              </Button>
-            ),
-          }}
-        >
-          {gridItems && gridItems.length > 0 && (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              {gridItems.map((listing, index) => (
-                <ListingCard
-                  key={listing.id}
-                  listing={listing}
-                  animateEntrance
-                  style={{ animationDelay: `${index * STAGGER_MS}ms` }}
-                />
+            <div className={HOME_GRID_CLASSES}>
+              {justListed.map((listing, index) => (
+                <div key={listing.id} className={cn(index >= 6 && "hidden lg:block")}>
+                  <ListingCard listing={listing} />
+                </div>
               ))}
             </div>
-          )}
-        </QueryState>
+          </QueryState>
+        </section>
+      )}
+
+      <section aria-labelledby="categories-heading" className="flex flex-col gap-6">
+        <h2 id="categories-heading" className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+          Browse by category
+        </h2>
+        <ul className="grid grid-cols-1 border-t border-border sm:grid-cols-2 lg:grid-cols-3 sm:gap-x-8">
+          {CATEGORIES.map((category) => (
+            <li key={category} className="border-b border-border">
+              <Link
+                to={`/listings?category=${category}`}
+                className="group flex min-h-14 items-center gap-4 py-3 text-ink transition-colors hover:text-moss-700"
+              >
+                <span aria-hidden="true" className={cn("h-8 w-2 shrink-0 rounded-[1px]", CATEGORY_SPINE[category])} />
+                <span className="flex-1 font-serif text-lg">{CATEGORY_LABELS[category]}</span>
+                <ArrowRight
+                  aria-hidden="true"
+                  className="size-4 text-ink-soft transition-transform group-hover:text-moss-700 motion-safe:group-hover:translate-x-0.5"
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      {/* How it works — an editorial sequence, table-of-contents style:
-          the step numerals carry the visual weight instead of another
-          row of icon badges. */}
-      <section className="flex flex-col gap-8">
-        <h2 className="font-serif text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+      <section aria-labelledby="how-heading" className="flex flex-col gap-6">
+        <h2 id="how-heading" className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
           How it works
         </h2>
-        <ol className="flex flex-col divide-y divide-border border-t border-border">
+        <ol className="grid grid-cols-1 gap-6 border-t border-border pt-6 sm:grid-cols-3 sm:gap-8">
           {HOW_IT_WORKS.map((step, index) => (
-            <li
-              key={step.title}
-              className="animate-fade-up grid grid-cols-[64px_1fr] items-baseline gap-4 py-6 sm:grid-cols-[120px_1fr] sm:gap-8 sm:py-8"
-              style={{ animationDelay: `${index * 70}ms` }}
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "font-serif text-4xl font-semibold tabular-nums sm:text-6xl",
-                  index === HOW_IT_WORKS.length - 1 ? "text-clay-500" : "text-moss-400",
-                )}
-              >
+            <li key={step.title} className="grid grid-cols-[2.5rem_1fr] gap-x-3 sm:block">
+              <span aria-hidden="true" className="font-serif text-2xl font-semibold text-moss-600 lining-nums">
                 {String(index + 1).padStart(2, "0")}
               </span>
-              <div>
-                <h3 className="font-serif text-lg font-semibold text-ink sm:text-xl">{step.title}</h3>
-                <p className="mt-1 max-w-md text-sm leading-relaxed text-ink-muted">
-                  {step.description}
-                </p>
+              <div className="sm:mt-2">
+                <h3 className="text-base font-semibold text-ink">{step.title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-ink-muted">{step.description}</p>
               </div>
             </li>
           ))}
         </ol>
       </section>
 
-      {/* Why second-hand — one full-bleed editorial statement, the page's
-          strongest typographic moment, rather than a boxed callout. A
-          single line-drawn book mark (Phase 3) is the only book-object
-          language allowed in here — a mark beside the quote, not a photo
-          or a card, so the section stays what it already was: typography,
-          not another gallery. */}
-      <section className="relative left-1/2 right-1/2 -mx-[50vw] w-screen bg-paper-muted py-16 sm:py-24">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.3fr_1fr] lg:items-center lg:gap-16">
-          <div>
-            <BookCoverGlyph className="mb-4 size-8 text-clay-500" />
-            <p className="font-serif text-4xl font-semibold leading-[1.15] tracking-tight text-ink sm:text-5xl lg:text-6xl">
-              Good books deserve <em className="text-clay-600 not-italic">another reader</em>.
-            </p>
-          </div>
-          <ul className="flex flex-col divide-y divide-border/70 lg:border-l lg:border-border/70 lg:pl-10">
-            {VALUE_PROPS.map((prop, index) => (
-              <li
-                key={prop.title}
-                className="animate-fade-up flex items-start gap-3 py-4 first:pt-0 lg:first:pt-4 last:pb-0"
-                style={{ animationDelay: `${index * 70}ms` }}
-              >
-                <prop.icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-clay-600" />
-                <div>
-                  <p className="text-sm font-semibold text-ink">{prop.title}</p>
-                  <p className="mt-0.5 text-sm leading-relaxed text-ink-muted">{prop.description}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+      <section
+        aria-labelledby="sell-heading"
+        className="flex flex-col gap-5 rounded-lg bg-paper-muted px-6 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-10"
+      >
+        <div>
+          <h2 id="sell-heading" className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+            Good books deserve another reader.
+          </h2>
+          <p className="mt-2 text-base text-ink-muted">Finished with a book? List it for the next person.</p>
         </div>
+        <Link to="/listings/new" className={buttonClasses("primary", "shrink-0 self-start sm:self-auto")}>
+          Sell a book
+        </Link>
       </section>
     </div>
   );
 }
 
-const HERO_ROTATE = ["-rotate-2", "rotate-3", "-rotate-1"];
-const HERO_LIFT = ["", "mb-7 sm:mb-8", "mb-2 sm:mb-3"];
-const HERO_VISIBLE_FROM = ["", "hidden sm:block", "hidden lg:block"];
+interface HeroShelfProps {
+  isLoading: boolean;
+  shelf: ListingPublic[];
+  isEmpty: boolean;
+  hasError: boolean;
+}
 
 /**
- * Phase 3: the hero's right-hand visual, replacing the old vector book-
- * stack illustration with the same conceptual arrangement — a few books
- * set down together, slightly turned, uneven — built from real
- * `BookCover` instances instead of drawn shapes. Reuses the very first
- * items `HomePage`'s own "current arrivals" query already fetched (no
- * second request), and those items are excluded from the grid below, so
- * nothing is shown to a visitor twice on the same page.
+ * Up to five of the newest real books standing upright on one baseline
+ * (four beside the headline on large screens, where five would shrink
+ * each cover too far). Desktop/tablet: equal slots in a row, each cover at
+ * its true shape,
+ * bottoms aligned on a hairline. Phones: the same row as a horizontal
+ * scroll-snap shelf showing two and a half books, so it's evident there's
+ * more to swipe to. The books arrive once with a short stagger (transform
+ * only, skipped under reduced motion).
  *
- * This is the P0 "real photography, not an illustration" opportunity
- * Phase 0 named — but it never depends on a photograph existing to work:
- * `BookCover` already renders P1A's `NoCoverPlaceholder` when a listing
- * has none, and at this arrangement's scale (a few objects, generous
- * spacing, not a dense grid) a run of placeholders still reads as quiet
- * and considered rather than as Phase 0's "wall of no-cover tiles" —
- * verified directly against the seeded dataset at 0%, 25%, 50%, and 75%
- * cover coverage, not assumed. One item still renders at every width
- * (mobile shows the first; `sm`/`lg` add the second/third) so the mobile
- * hero always closes on an intentional beat instead of Phase 0's empty
- * gap under the CTAs.
+ * Shown only with at least `SHELF_MIN` books, so a near-empty marketplace
+ * never gets a lone orphaned cover in the hero. Zero listings get an
+ * honest empty-shelf line instead; an error or too few books leave this
+ * space empty (the "Just listed" section below reports errors).
  */
-function HeroBookArrangement({ items }: { items: ListingPublic[] }): React.JSX.Element {
-  return (
-    <div className="flex items-end gap-4 sm:gap-5">
-      {items.map((listing, index) => (
-        <Link
-          key={listing.id}
-          to={`/listings/${listing.id}`}
-          className={cn(
-            "group block w-24 shrink-0 animate-fade-up transition-transform duration-300 ease-out hover:-translate-y-1 hover:rotate-0 sm:w-28 lg:w-32",
-            HERO_ROTATE[index],
-            HERO_LIFT[index],
-            HERO_VISIBLE_FROM[index],
-          )}
-          style={{ animationDelay: `${index * 90}ms` }}
-        >
-          <BookCover
-            size="card"
-            interactive
-            image={
-              listing.images[0]
-                ? { url: listing.images[0].url, alt: `${listing.title} by ${listing.author}` }
-                : undefined
-            }
-          />
+function HeroShelf({ isLoading, shelf, isEmpty, hasError }: HeroShelfProps): React.JSX.Element | null {
+  if (isLoading) {
+    // Same row, same slots, as the loaded shelf, so the books arriving
+    // don't push the rest of the page down.
+    return (
+      <ShelfRow label="Loading newest books">
+        {Array.from({ length: SHELF_MAX }, (_, index) => (
+          <ShelfSlot key={index} index={index}>
+            <Skeleton className="aspect-[2/3] w-full rounded-xs" />
+          </ShelfSlot>
+        ))}
+      </ShelfRow>
+    );
+  }
+  if (isEmpty) {
+    return (
+      <div className="flex flex-col gap-2 border-b border-border-strong pb-6 lg:pb-8">
+        <p className="font-serif text-2xl text-ink">The shelf is empty.</p>
+        <Link to="/listings/new" className="w-fit font-medium text-moss-700 underline underline-offset-4 hover:text-moss-600">
+          List the first book
         </Link>
+      </div>
+    );
+  }
+  if (hasError || shelf.length === 0) {
+    return null;
+  }
+
+  return (
+    <ShelfRow label="Newest books">
+      {shelf.map((listing, index) => (
+        <ShelfSlot key={listing.id} index={index} className="animate-shelf-in" style={{ animationDelay: `${index * STAGGER_MS}ms` }}>
+          <Link
+            to={`/listings/${listing.id}`}
+            aria-label={`${listing.title} by ${listing.author}, ${formatPrice(listing.price)}`}
+            className="group block"
+          >
+            <BookCover
+              size="card"
+              interactive
+              title={listing.title}
+              author={listing.author}
+              category={listing.category}
+              image={listing.images[0] ? { url: listing.images[0].url, alt: "" } : undefined}
+            />
+          </Link>
+        </ShelfSlot>
       ))}
+    </ShelfRow>
+  );
+}
+
+function ShelfRow({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div className="-mx-4 sm:mx-0">
+      <ul
+        aria-label={label}
+        className="flex snap-x snap-mandatory items-end gap-3 overflow-x-auto px-4 pb-px sm:grid sm:grid-cols-5 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4"
+      >
+        {children}
+      </ul>
+      <div aria-hidden="true" className="mx-4 border-b border-border-strong sm:mx-0" />
     </div>
+  );
+}
+
+function ShelfSlot({
+  index,
+  className,
+  style,
+  children,
+}: {
+  index: number;
+  className?: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <li className={cn("w-[38%] shrink-0 snap-start sm:w-auto", index === SHELF_MAX - 1 && "lg:hidden", className)} style={style}>
+      {children}
+    </li>
   );
 }

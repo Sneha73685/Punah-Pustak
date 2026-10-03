@@ -58,8 +58,8 @@ export function LoginPage(): React.JSX.Element {
 
   return (
     <AuthShell>
-      <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">Welcome back</h1>
-      <p className="mt-1 text-sm text-ink-muted">Log in to manage your listings.</p>
+      <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-h1">Welcome back</h1>
+      <p className="mt-2 text-base text-ink-muted">Log in to list books and manage your listings.</p>
       <form className="mt-6 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <Input
           label="Email"
@@ -80,7 +80,7 @@ export function LoginPage(): React.JSX.Element {
           error={fieldErrors.password}
         />
         {formError && (
-          <p role="alert" className="text-sm font-medium text-clay-600">
+          <p role="alert" className="text-sm font-medium text-danger-600">
             {formError}
           </p>
         )}
@@ -88,9 +88,9 @@ export function LoginPage(): React.JSX.Element {
           Log in
         </Button>
       </form>
-      <p className="mt-6 text-sm text-ink-muted">
+      <p className="mt-6 border-t border-border pt-6 text-sm text-ink-muted">
         Don&apos;t have an account?{" "}
-        <Link to="/register" className="font-medium text-moss-600 hover:underline">
+        <Link to="/register" className="font-medium text-moss-700 underline underline-offset-4 hover:text-moss-600">
           Register
         </Link>
       </p>

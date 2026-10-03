@@ -1,10 +1,20 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { X } from "lucide-react";
+
+import { cn } from "@/lib/cn";
 
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /**
+   * `dialog` (default): a centred confirmation dialog.
+   * `sheet`: anchored to the bottom edge at full width on phones (a centred
+   * dialog from `sm` up), with a visible close button — for task panels
+   * like Browse's mobile filters rather than yes/no confirmations.
+   */
+  variant?: "dialog" | "sheet";
 }
 
 const FOCUSABLE_SELECTOR =
@@ -26,7 +36,7 @@ const FOCUSABLE_SELECTOR =
  * without jsdom's incomplete `<dialog>` support.
  * A11Y-006: `Escape` closes; no keyboard trap escape hatch is lost.
  */
-export function Modal({ isOpen, onClose, title, children }: ModalProps): React.JSX.Element | null {
+export function Modal({ isOpen, onClose, title, children, variant = "dialog" }: ModalProps): React.JSX.Element | null {
   const containerRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -77,7 +87,10 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps): React.J
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-[3px]"
+      className={cn(
+        "fixed inset-0 z-50 flex justify-center bg-ink/50",
+        variant === "sheet" ? "items-end sm:items-center sm:p-4" : "items-center p-4",
+      )}
       onClick={onClose}
     >
       <div
@@ -86,12 +99,29 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps): React.J
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="animate-scale-in w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-lift focus:outline-none"
+        className={cn(
+          "w-full max-w-md border border-border bg-paper shadow-overlay focus:outline-none",
+          variant === "sheet"
+            ? "animate-sheet-in max-h-[85vh] overflow-y-auto rounded-t-xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-xl sm:p-6"
+            : "animate-scale-in rounded-xl p-6",
+        )}
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id={titleId} className="font-serif text-lg font-semibold text-ink">
-          {title}
-        </h2>
+        <div className="flex items-start justify-between gap-4">
+          <h2 id={titleId} className="text-lg font-semibold text-ink">
+            {title}
+          </h2>
+          {variant === "sheet" && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="-m-2 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-paper-muted hover:text-ink"
+            >
+              <X aria-hidden="true" className="size-5" />
+            </button>
+          )}
+        </div>
         <div className="mt-4">{children}</div>
       </div>
     </div>
