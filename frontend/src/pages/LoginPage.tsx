@@ -58,9 +58,9 @@ export function LoginPage(): React.JSX.Element {
 
   return (
     <AuthShell>
-      <h1 className="font-serif text-2xl font-semibold text-ink">Welcome back</h1>
-      <p className="mt-1 text-sm text-ink-muted">Log in to manage your listings.</p>
-      <form className="mt-6 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
+      <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-ink sm:text-30">Log in</h1>
+      <p className="mt-2 text-17 text-ink-2">To list copies and manage the ones you’ve listed. Browsing doesn’t need an account.</p>
+      <form className="mt-7 flex flex-col gap-5" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <Input
           label="Email"
           type="email"
@@ -80,19 +80,20 @@ export function LoginPage(): React.JSX.Element {
           error={fieldErrors.password}
         />
         {formError && (
-          <p role="alert" className="text-sm font-medium text-clay-600">
+          <p role="alert" className="text-15 font-medium text-danger">
             {formError}
           </p>
         )}
-        <Button type="submit" isLoading={isSubmitting} className="mt-2">
+        <Button type="submit" isLoading={isSubmitting} className="mt-1 w-full">
           Log in
         </Button>
       </form>
-      <p className="mt-6 text-sm text-ink-muted">
-        Don&apos;t have an account?{" "}
-        <Link to="/register" className="font-medium text-moss-600 hover:underline">
+      <p className="mt-7 border-t border-rule pt-4 text-15 text-ink-2">
+        No account?{" "}
+        <Link to="/register" className="font-medium text-ballpoint underline underline-offset-4">
           Register
         </Link>
+        . It takes an email, a display name and a password.
       </p>
     </AuthShell>
   );

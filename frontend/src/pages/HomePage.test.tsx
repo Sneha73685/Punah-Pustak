@@ -83,7 +83,15 @@ describe("HomePage", () => {
       page: 1,
       page_size: 8,
     };
-    vi.mocked(listingsApi.browseListings).mockResolvedValue(page);
+    // Home makes one unfiltered "Just in" request plus three filtered,
+    // query-backed lists (under $5, like new, textbooks). Only the
+    // unfiltered request returns these two listings here, so each title
+    // appears exactly once; the empty lists are hidden.
+    vi.mocked(listingsApi.browseListings).mockImplementation(async (filters = {}) =>
+      filters.maxPrice !== undefined || filters.condition || filters.category
+        ? { items: [], total: 0, page: 1, page_size: 5 }
+        : page,
+    );
 
     renderHomePage();
 
@@ -93,13 +101,13 @@ describe("HomePage", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it('shows the "No books listed yet" empty state on a genuinely empty, successful response', async () => {
-    const page: ListingPage = { items: [], total: 0, page: 1, page_size: 8 };
+  it('shows the honest "nothing is listed yet" state on a genuinely empty, successful response', async () => {
+    const page: ListingPage = { items: [], total: 0, page: 1, page_size: 20 };
     vi.mocked(listingsApi.browseListings).mockResolvedValue(page);
 
     renderHomePage();
 
-    expect(await screen.findByText("No books listed yet")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing is listed yet.")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -114,50 +122,50 @@ describe("HomePage", () => {
     // The specific, load-bearing regression: an API failure must never be
     // rendered as "the marketplace is empty" -- those are different facts
     // and a visitor (or the site owner) needs to be able to tell them apart.
-    expect(screen.queryByText("No books listed yet")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nothing is listed yet.")).not.toBeInTheDocument();
   });
 
-  it("navigates to /listings when \"Browse Books\" is clicked", async () => {
+  it('navigates to /listings from the "Browse all" link', async () => {
     vi.mocked(listingsApi.browseListings).mockResolvedValue({
-      items: [],
-      total: 0,
+      items: [makeListing({ title: "Clean Code" })],
+      total: 1,
       page: 1,
-      page_size: 8,
+      page_size: 20,
     });
     const user = userEvent.setup();
     renderHomePage();
 
-    await user.click(await screen.findByRole("button", { name: "Browse Books" }));
+    await user.click(await screen.findByRole("link", { name: "Browse all" }));
 
     expect(await screen.findByText("Browse page")).toBeInTheDocument();
   });
 
-  it('navigates to /listings/new when the hero "Sell a Book" button is clicked', async () => {
+  it('navigates to /listings/new from the "List a copy" link', async () => {
     vi.mocked(listingsApi.browseListings).mockResolvedValue({
       items: [],
       total: 0,
       page: 1,
-      page_size: 8,
+      page_size: 20,
     });
     const user = userEvent.setup();
     renderHomePage();
 
-    await user.click(await screen.findByRole("button", { name: "Sell a Book" }));
+    await user.click(await screen.findByRole("link", { name: "List a copy" }));
 
     expect(await screen.findByText("Create listing page")).toBeInTheDocument();
   });
 
-  it('navigates to /listings/new from the empty-state\'s "Sell your first book" action', async () => {
+  it('navigates to /listings/new from the empty shelf\'s "List the first book" link', async () => {
     vi.mocked(listingsApi.browseListings).mockResolvedValue({
       items: [],
       total: 0,
       page: 1,
-      page_size: 8,
+      page_size: 20,
     });
     const user = userEvent.setup();
     renderHomePage();
 
-    await user.click(await screen.findByRole("button", { name: "Sell your first book" }));
+    await user.click(await screen.findByRole("link", { name: "List the first book" }));
 
     expect(await screen.findByText("Create listing page")).toBeInTheDocument();
   });

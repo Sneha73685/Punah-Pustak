@@ -4,6 +4,8 @@ import type { LucideProps } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export interface EmptyStateProps {
+  /** Kept for API compatibility; the Copy Record system states empty
+   * results in words, so no icon is drawn. */
   icon?: ComponentType<LucideProps>;
   title: string;
   description?: string;
@@ -12,34 +14,15 @@ export interface EmptyStateProps {
 }
 
 /**
- * FE-011 shared component: the richer replacement for a bare "Nothing to
- * show yet." line, used wherever an empty result set is itself part of the
- * expected experience (an empty marketplace on day one, a seller with no
- * listings yet) rather than a dead end — pairs an icon, a human title/
- * description, and an optional call-to-action.
+ * FE-011 shared component: an empty result stated plainly under a rule,
+ * with the one way forward (when there is one) beneath it.
  */
-export function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  action,
-  className,
-}: EmptyStateProps): React.JSX.Element {
+export function EmptyState({ title, description, action, className }: EmptyStateProps): React.JSX.Element {
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border-strong bg-paper-muted/60 px-6 py-12 text-center",
-        className,
-      )}
-    >
-      {Icon && (
-        <span className="flex size-12 items-center justify-center rounded-full bg-white text-moss-500 shadow-card">
-          <Icon aria-hidden="true" className="size-6" />
-        </span>
-      )}
-      <h3 className="font-serif text-lg font-semibold text-ink">{title}</h3>
-      {description && <p className="max-w-sm text-sm text-ink-muted">{description}</p>}
-      {action && <div className="mt-2">{action}</div>}
+    <div className={cn("flex flex-col items-start gap-2 border-t border-ink py-8", className)}>
+      <h2 className="text-22 font-bold tracking-[-0.01em] text-ink">{title}</h2>
+      {description && <p className="max-w-md text-15 text-ink-2">{description}</p>}
+      {action && <div className="mt-3">{action}</div>}
     </div>
   );
 }

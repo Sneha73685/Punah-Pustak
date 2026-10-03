@@ -13,6 +13,8 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   /** Rendered as the first, disabled-if-required `<option>` — e.g. "Any category". */
   placeholder?: string;
   error?: string;
+  /** Helper text under the field, e.g. what the selected option means. */
+  hint?: string;
 }
 
 /** FE-011 shared component. Same label/error association pattern as `Input`
@@ -21,19 +23,20 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
  * different enough that sharing one component would need its own internal
  * branching, which is worse than two small, single-purpose components. */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, options, placeholder, error, id, className, required, children, ...rest },
+  { label, options, placeholder, error, hint, id, className, required, children, ...rest },
   ref,
 ) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
   const errorId = `${selectId}-error`;
+  const hintId = `${selectId}-hint`;
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={selectId} className="text-sm font-medium text-ink">
+      <label htmlFor={selectId} className="text-[14px] font-semibold text-ink">
         {label}
         {required && (
-          <span aria-hidden="true" className="ml-0.5 text-clay-600">
+          <span aria-hidden="true" className="ml-0.5 text-danger">
             *
           </span>
         )}
@@ -43,12 +46,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={selectId}
         required={required}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={cn(error && errorId, hint && !error && hintId) || undefined}
         className={cn(
-          "rounded-lg border bg-white px-3 py-2.5 text-sm text-ink",
-          "transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss-500/40",
-          "disabled:cursor-not-allowed disabled:bg-paper-muted disabled:text-ink-muted",
-          error ? "border-clay-500" : "border-border-strong",
+          "min-h-11 rounded-xs border bg-white px-3 py-2.5 text-base text-ink",
+          "transition-colors focus-visible:border-ballpoint focus-visible:outline-2 focus-visible:outline-offset-0",
+          "disabled:cursor-not-allowed disabled:border-rule disabled:bg-transparent disabled:text-ink-2",
+          error ? "border-danger" : "border-rule-strong hover:border-ink-2",
           className,
         )}
         {...rest}
@@ -61,8 +64,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         ))}
         {children as ReactNode}
       </select>
+      {hint && !error && (
+        <p id={hintId} className="text-13 text-ink-2">
+          {hint}
+        </p>
+      )}
       {error && (
-        <p id={errorId} role="alert" className="text-xs font-medium text-clay-600">
+        <p id={errorId} role="alert" className="text-13 font-medium text-danger">
           {error}
         </p>
       )}

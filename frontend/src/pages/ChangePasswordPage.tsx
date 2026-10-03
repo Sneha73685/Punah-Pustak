@@ -1,7 +1,5 @@
-import { KeyRound } from "lucide-react";
-
 import { useAuth } from "@/auth/AuthContext";
-import { Card } from "@/components/Card";
+import { AuthShell } from "@/components/AuthShell";
 import { PasswordChangeForm } from "@/components/PasswordChangeForm";
 
 /**
@@ -19,23 +17,17 @@ export function ChangePasswordPage(): React.JSX.Element {
   const { completePasswordChange } = useAuth();
 
   return (
-    <div className="mx-auto max-w-sm">
-      <Card padding="lg">
-        <span className="flex size-11 items-center justify-center rounded-full bg-moss-50 text-moss-600">
-          <KeyRound aria-hidden="true" className="size-5" />
-        </span>
-        <h1 className="mt-4 font-serif text-xl font-semibold text-ink">Change your password</h1>
-        <p className="mt-2 text-sm text-ink-muted">
-          An administrator reset your password. Enter the temporary password you were given, then
-          choose a new one, before continuing.
-        </p>
-        <div className="mt-6">
-          <PasswordChangeForm
-            currentPasswordLabel="Temporary password"
-            onSuccess={() => void completePasswordChange()}
-          />
-        </div>
-      </Card>
-    </div>
+    <AuthShell>
+      <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-ink sm:text-30">
+        Change your password
+      </h1>
+      <p className="mt-2 text-17 text-ink-2">
+        An administrator reset your password. Enter the temporary password you were given, then choose a new one,
+        before continuing.
+      </p>
+      <div className="mt-7">
+        <PasswordChangeForm currentPasswordLabel="Temporary password" onSuccess={() => void completePasswordChange()} />
+      </div>
+    </AuthShell>
   );
 }

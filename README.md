@@ -143,7 +143,7 @@ flowchart TB
     Backend["FastAPI backend"]
 
     Pages --> Hooks --> ApiClient --> Client --> Backend
-    Pages -.->|shared UI| Components["components/<br/>Button, Input, Select, Modal, Card, Badge"]
+    Pages -.->|shared UI| Components["components/<br/>Button, Input, Select, Modal, Badge,<br/>PhotoFrame, ConditionMeter, ListingCard"]
 ```
 
 Every server-state read or write goes through a TanStack Query hook — no component calls `fetch` or an `api/*.ts` function directly, and there is no separate Redux/Zustand store duplicating server data. `AuthContext` holds the current session (loading / unauthenticated / password-change-required / authenticated) and is the one place login, logout, and token refresh state live. Full detail: [`docs/frontend.md`](docs/frontend.md).

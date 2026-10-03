@@ -91,12 +91,12 @@ test.describe("seller lifecycle", () => {
       await dialog.getByRole("button", { name: "Delete" }).click();
       await page.waitForURL(/\/my-listings$/);
       await expect(page.getByRole("heading", { name: title })).toBeVisible();
-      // Scoped to this listing's own card: "Removed" is ambiguous on this
-      // page on its own (it's also the label on My Listings' status-count
-      // summary card), but this listing's card is the one place both the
-      // title and its status badge are guaranteed to appear together.
-      const listingCard = page.getByRole("link", { name: new RegExp(title) });
-      await expect(listingCard.getByText("Removed")).toBeVisible();
+      // Scoped to this listing's own inventory row: "Removed" is ambiguous on
+      // this page on its own (it's also a status-filter tab label), but this
+      // listing's row is the one place both its title and its status badge
+      // are guaranteed to appear together.
+      const listingRow = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: title }) });
+      await expect(listingRow.getByText("Removed")).toBeVisible();
 
       // FR-006a: the owner's own detail view of a deleted listing is still
       // a full 200, never the 404 a stranger gets (checked next).

@@ -2,43 +2,40 @@ import type { HTMLAttributes } from "react";
 
 import { cn } from "@/lib/cn";
 
-export type BadgeTone = "neutral" | "success" | "warning" | "danger";
+export type BadgeTone = "neutral" | "success" | "danger";
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   tone?: BadgeTone;
+  /** Adds a leading mark whose *shape* carries the state: a filled disc
+   * (available/active), a hollow ring (sold, neutral), a cross (removed,
+   * suspended). Layered on top of the label, never instead of it
+   * (A11Y-003): the mark is `aria-hidden`, the text is what is read. */
+  dot?: boolean;
 }
 
-const TONE_CLASSES: Record<BadgeTone, string> = {
-  neutral: "bg-paper-muted text-ink-muted",
-  success: "bg-moss-50 text-moss-700",
-  warning: "bg-gold-50 text-gold-600",
-  danger: "bg-clay-50 text-clay-600",
+const MARK_CLASSES: Record<BadgeTone, string> = {
+  success: "size-[9px] rounded-full bg-ink",
+  neutral: "size-[9px] rounded-full border-[1.5px] border-ink",
+  danger: "size-[10px] [background:linear-gradient(45deg,transparent_42%,currentColor_42%_58%,transparent_58%),linear-gradient(-45deg,transparent_42%,currentColor_42%_58%,transparent_58%)]",
 };
 
 /**
- * FE-011 shared component — a generic status pill. Deliberately has no
- * knowledge of *what* it's labeling (a listing's `status`, a user's
- * `is_active`, etc.) — callers map their own domain value to a `tone`
- * (e.g. `available` -> "success", `suspended` -> "danger") so this stays a
- * reusable primitive rather than a listing- or user-specific component.
- * A11Y-003: color is never the only signal — the tone's background
- * changes, but the visible text label is what actually conveys meaning.
+ * FE-011 shared component: a status written as a label, not a pill. No
+ * background, no rounded container; the tone changes only the mark's shape
+ * and, for `danger`, the ink. Callers map their own domain value to a
+ * tone (e.g. `sold` -> "neutral", `suspended` -> "danger").
  */
-export function Badge({
-  tone = "neutral",
-  className,
-  children,
-  ...rest
-}: BadgeProps): React.JSX.Element {
+export function Badge({ tone = "neutral", dot = false, className, children, ...rest }: BadgeProps): React.JSX.Element {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-        TONE_CLASSES[tone],
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[14px] font-semibold",
+        tone === "danger" ? "text-danger" : "text-ink",
         className,
       )}
       {...rest}
     >
+      {dot && <span aria-hidden="true" className={cn("shrink-0", MARK_CLASSES[tone])} />}
       {children}
     </span>
   );

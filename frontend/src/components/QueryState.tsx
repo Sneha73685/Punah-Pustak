@@ -58,7 +58,7 @@ export function QueryState({
       );
     }
     return (
-      <p role="status" className="py-8 text-center text-sm text-ink-muted">
+      <p role="status" className="py-8 text-center text-15 text-ink-2">
         Loading…
       </p>
     );
@@ -66,7 +66,7 @@ export function QueryState({
 
   if (error) {
     return (
-      <p role="alert" className="py-8 text-center text-sm font-medium text-clay-600">
+      <p role="alert" className="py-8 text-center text-15 font-medium text-danger">
         {getErrorMessage(error)}
       </p>
     );
@@ -76,7 +76,7 @@ export function QueryState({
     if (emptyState) {
       return <EmptyState {...emptyState} />;
     }
-    return <p className="py-8 text-center text-sm text-ink-muted">{emptyMessage}</p>;
+    return <p className="py-8 text-center text-15 text-ink-2">{emptyMessage}</p>;
   }
 
   return <>{children}</>;

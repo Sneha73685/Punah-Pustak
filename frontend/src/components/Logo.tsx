@@ -1,27 +1,16 @@
-import { BookMarked } from "lucide-react";
-
 import { cn } from "@/lib/cn";
 
 export interface LogoProps {
   className?: string;
-  /** Drops the wordmark, keeping only the mark — for tight spaces. */
-  markOnly?: boolean;
 }
 
-/** Punah-Pustak's brand mark: "re-book" — a book icon paired with a serif
- * wordmark, reused in the navbar, footer, and the auth pages' editorial
- * panel rather than three separate hand-rolled headings. */
-export function Logo({ className, markOnly = false }: LogoProps): React.JSX.Element {
+/** Punah-Pustak's wordmark: the name set in heavy Schibsted Grotesk, with
+ * the hyphen in ballpoint blue. The hyphen is the hand-off: "punah" (again)
+ * joined to "pustak" (book), one reader to the next. No icon, no tile. */
+export function Logo({ className }: LogoProps): React.JSX.Element {
   return (
-    <span className={cn("inline-flex items-center gap-2", className)}>
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-moss-500 text-white">
-        <BookMarked aria-hidden="true" className="size-5" />
-      </span>
-      {!markOnly && (
-        <span className="font-serif text-lg font-semibold tracking-tight text-ink">
-          Punah-Pustak
-        </span>
-      )}
+    <span className={cn("whitespace-nowrap text-[19px] font-extrabold tracking-[-0.025em] text-ink sm:text-[21px]", className)}>
+      Punah<span className="text-ballpoint">-</span>Pustak
     </span>
   );
 }

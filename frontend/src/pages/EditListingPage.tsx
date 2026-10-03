@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthContext";
-import { Card } from "@/components/Card";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { ListingForm } from "@/components/ListingForm";
 import { PageHeader } from "@/components/PageHeader";
@@ -64,29 +63,29 @@ export function EditListingPage(): React.JSX.Element {
   return (
     <QueryState isLoading={query.isPending} error={query.error}>
       {listing && !isOwner && (
-        <p role="alert" className="text-sm font-medium text-clay-600">
+        <p role="alert" className="text-15 font-medium text-danger">
           You don&apos;t have permission to edit this listing.
         </p>
       )}
       {listing && isOwner && listing.status !== "available" && (
-        <div className="mx-auto max-w-lg">
-          <Card>
-            <p className="text-sm text-ink">
+        <div className="max-w-lg pt-8">
+          <div className="border-y border-ink py-6">
+            <p className="text-base text-ink">
               This listing is {listing.status} and can no longer be edited.
             </p>
             <Link
               to={`/listings/${listing.id}`}
-              className="mt-2 inline-block font-medium text-moss-600 hover:underline"
+              className="mt-2 inline-flex min-h-11 items-center font-medium text-ballpoint underline underline-offset-4"
             >
               Back to listing
             </Link>
-          </Card>
+          </div>
         </div>
       )}
       {listing && isOwner && listing.status === "available" && (
-        <div className="mx-auto flex max-w-2xl flex-col gap-6">
+        <div className="flex max-w-2xl flex-col gap-6">
           <PageHeader title="Edit listing" description="Keep your listing accurate and up to date." />
-          <Card padding="lg">
+          <div className="pt-2">
             <ListingForm
               initialValues={{
                 title: listing.title,
@@ -108,12 +107,12 @@ export function EditListingPage(): React.JSX.Element {
                 error={serverFieldErrors.images}
               />
               {formError && (
-                <p role="alert" className="text-sm font-medium text-clay-600">
+                <p role="alert" className="text-15 font-medium text-danger">
                   {formError}
                 </p>
               )}
             </ListingForm>
-          </Card>
+          </div>
         </div>
       )}
     </QueryState>

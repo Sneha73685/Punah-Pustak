@@ -53,10 +53,42 @@ my_listings_router = APIRouter(prefix="/users/me", tags=["listings"])
 
 _DEFAULT_PAGE_SIZE = 20
 _MAX_PAGE_SIZE = 50  # API-003: hard page_size cap.
+_SELLER_OTHER_LISTINGS_LIMIT = 3  # P1B: a restrained preview, not a second browse surface.
 
 
 def _build_service(db: Session, storage: StorageBackend) -> ListingService:
     return ListingService(listings=ListingRepository(db), storage=storage)
+
+
+def _assemble_public(
+    listing: Listing, seller_display_name: str, storage: StorageBackend
+) -> ListingPublic:
+    """The shared response-shaping core of `to_public()`, split out so a
+    caller that already knows the seller's display name (P1B's "other
+    listings from this seller" preview — every entry shares the same owner
+    as the anchor listing, already looked up once) can build a `ListingPublic`
+    without a redundant `UserService.get_by_id` per item.
+    """
+    images = [
+        ListingImagePublic(id=img.id, url=storage.get_url(img.object_key), position=img.position)
+        for img in listing.images
+    ]
+    return ListingPublic(
+        id=listing.id,
+        owner_id=listing.owner_id,
+        seller_display_name=seller_display_name,
+        title=listing.title,
+        author=listing.author,
+        description=listing.description,
+        category=listing.category,
+        condition=listing.condition,
+        price=listing.price,
+        status=listing.status,
+        sold_at=listing.sold_at,
+        created_at=listing.created_at,
+        updated_at=listing.updated_at,
+        images=images,
+    )
 
 
 def to_public(listing: Listing, db: Session, storage: StorageBackend) -> ListingPublic:
@@ -83,27 +115,7 @@ def to_public(listing: Listing, db: Session, storage: StorageBackend) -> Listing
     # hard-deleted (DB-021) — a listing whose owner doesn't exist is a data
     # -integrity violation, not a case to degrade gracefully for.
     assert owner is not None, f"Listing {listing.id} references a nonexistent owner"
-
-    images = [
-        ListingImagePublic(id=img.id, url=storage.get_url(img.object_key), position=img.position)
-        for img in listing.images
-    ]
-    return ListingPublic(
-        id=listing.id,
-        owner_id=listing.owner_id,
-        seller_display_name=owner.display_name,
-        title=listing.title,
-        author=listing.author,
-        description=listing.description,
-        category=listing.category,
-        condition=listing.condition,
-        price=listing.price,
-        status=listing.status,
-        sold_at=listing.sold_at,
-        created_at=listing.created_at,
-        updated_at=listing.updated_at,
-        images=images,
-    )
+    return _assemble_public(listing, owner.display_name, storage)
 
 
 @router.get("", response_model=ListingPage, summary="Browse/search/filter listings (FR-001..004)")
@@ -146,9 +158,53 @@ def get_listing(
     storage: Annotated[StorageBackend, Depends(get_storage_backend)],
     requester: Annotated[User | None, Depends(get_current_user_optional)],
 ) -> ListingPublic:
+    """Frontend Phase 2 ("seller trust presentation"): the one place
+    `seller_member_since`/`seller_active_listings_count` get filled in — see
+    `ListingPublic`'s own docstring for why every other `ListingPublic`
+    -returning endpoint deliberately leaves them `None` instead. `owner_id`
+    on a `Listing` has no ORM-level `relationship` to `User` (see
+    `listings.models`'s module docstring), so this is a second,
+    independent `User` lookup alongside the one already inside `to_public()`
+    — an accepted, deliberate duplicate: a single extra indexed-PK read on a
+    single-item detail page, not a per-row cost, so it isn't worth widening
+    `to_public()`'s signature (six other call sites) just to share it.
+    `count_by_owner_status` (FR-032, already used by `GET
+    /users/me/listings/summary`) is reused as-is for the "active" count —
+    it's the codebase's one existing, already-tested "count this owner's
+    listings by status" query, and "active" here means exactly what
+    `ListingStatusEnum.AVAILABLE` means everywhere else in this API
+    (`browse`'s hard status filter, `_require_available`'s edit/mark-sold
+    gate) — not a new, second definition of "active".
+
+    `seller_other_listings` (P1B, "more from this seller") reuses the
+    already-fetched `owner.display_name` for every entry via
+    `_assemble_public` rather than calling `to_public()` per item — all of
+    them share this same owner, so that would be a redundant `User` lookup
+    per listing instead of the single query
+    `list_available_by_owner` already is (which itself eager-loads images,
+    same as everywhere else, so no per-item image query either).
+    """
     service = _build_service(db, storage)
     listing = service.get_detail(listing_id, requester)
-    return to_public(listing, db, storage)
+    public = to_public(listing, db, storage)
+
+    owner = UserService(db).get_by_id(listing.owner_id)
+    assert owner is not None, f"Listing {listing.id} references a nonexistent owner"
+    listings_repo = ListingRepository(db)
+    counts = listings_repo.count_by_owner_status(listing.owner_id)
+    other = listings_repo.list_available_by_owner(
+        listing.owner_id, exclude_id=listing.id, limit=_SELLER_OTHER_LISTINGS_LIMIT
+    )
+
+    return public.model_copy(
+        update={
+            "seller_member_since": owner.created_at,
+            "seller_active_listings_count": counts.get(ListingStatusEnum.AVAILABLE, 0),
+            "seller_other_listings": [
+                _assemble_public(item, owner.display_name, storage) for item in other
+            ],
+        }
+    )
 
 
 @router.post(

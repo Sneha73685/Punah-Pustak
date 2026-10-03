@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
-import { Upload, X } from "lucide-react";
+import { Camera, X } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 
@@ -88,7 +88,6 @@ export function ImageUploadField({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm font-medium text-ink">Photos</span>
       <label
         htmlFor="listing-images"
         onDragOver={(event) => {
@@ -98,17 +97,24 @@ export function ImageUploadField({
         onDragLeave={() => setIsDragActive(false)}
         onDrop={handleDrop}
         className={cn(
-          "flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
+          "flex cursor-pointer items-center gap-4 rounded-xs border border-dashed px-4 py-5 transition-colors duration-150 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ballpoint has-[:focus-visible]:[outline-style:solid]",
           remaining <= 0
-            ? "cursor-not-allowed border-border bg-paper-muted text-ink-soft"
+            ? "cursor-not-allowed border-rule bg-field text-ink-2"
             : isDragActive
-              ? "border-moss-500 bg-moss-50"
-              : "border-border-strong bg-paper-muted/60 hover:border-moss-500/60 hover:bg-moss-50/60",
+              ? "border-ballpoint bg-field"
+              : "border-rule-strong bg-white hover:border-ink",
         )}
       >
-        <Upload aria-hidden="true" className="size-6 text-ink-muted" />
-        <span className="text-sm font-medium text-ink">
-          {remaining > 0 ? "Drag & drop photos, or click to browse" : "Photo limit reached"}
+        <Camera aria-hidden="true" className="size-6 shrink-0 text-ink-2" />
+        <span className="flex flex-col">
+          <span className="text-15 font-medium text-ink">
+            {remaining > 0 ? "Add a photo of your copy" : "Photo limit reached"}
+          </span>
+          {remaining > 0 && (
+            <span className="text-15 text-ink-2">
+              Choose files or drop them here. The first photo is the one buyers see first.
+            </span>
+          )}
         </span>
         <input
           ref={inputRef}
@@ -122,46 +128,47 @@ export function ImageUploadField({
           className="sr-only"
         />
       </label>
-      <p id="listing-images-hint" className="text-xs text-ink-muted">
+      <p id="listing-images-hint" className="text-13 text-ink-2">
         JPEG, PNG, or WebP, up to 5 MB each. {Math.max(remaining, 0)} more can be added (
         {MAX_IMAGES_PER_LISTING} total per listing).
       </p>
       {files.length > 0 && (
-        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+        <ul className="grid grid-cols-3 gap-x-3 gap-y-2 sm:grid-cols-6">
           {files.map((file, index) => {
             const tooLarge = file.size > MAX_IMAGE_SIZE_BYTES;
             return (
-              <li key={`${file.name}-${index}`} className="relative">
+              <li key={`${file.name}-${index}`} className="flex flex-col">
+                {/* Previewed the way buyers will see it: uncropped, at its
+                    true proportions, on the square evidence field. */}
                 <div
                   className={cn(
-                    "aspect-square overflow-hidden rounded-lg border bg-paper-muted",
-                    tooLarge ? "border-clay-500" : "border-border",
+                    "relative aspect-square rounded-xs bg-field",
+                    tooLarge && "outline outline-2 outline-danger",
                   )}
                 >
                   <img
                     src={previewUrls.current.get(file)}
                     alt={file.name}
-                    className="h-full w-full object-cover"
+                    className="absolute inset-[6%] h-[88%] w-[88%] object-contain"
                   />
                 </div>
+                {tooLarge && <p className="mt-1 text-13 font-medium text-danger">Too large</p>}
                 <button
                   type="button"
                   onClick={() => removeFile(index)}
                   aria-label={`Remove ${file.name}`}
-                  className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-ink text-white shadow-card hover:bg-clay-600"
+                  className="inline-flex min-h-11 items-center gap-1 self-start text-15 text-ink-2 underline-offset-4 hover:text-danger hover:underline"
                 >
-                  <X aria-hidden="true" className="size-3" />
+                  <X aria-hidden="true" className="size-3.5" />
+                  Remove
                 </button>
-                {tooLarge && (
-                  <p className="mt-1 truncate text-[11px] font-medium text-clay-600">Too large</p>
-                )}
               </li>
             );
           })}
         </ul>
       )}
       {error && (
-        <p role="alert" className="text-xs font-medium text-clay-600">
+        <p role="alert" className="text-13 font-medium text-danger">
           {error}
         </p>
       )}

@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
-import { CATEGORY_LABELS, CONDITION_LABELS } from "@/lib/listingLabels";
+import { CATEGORY_LABELS, CONDITION_DESCRIPTIONS, CONDITION_LABELS } from "@/lib/listingLabels";
 import type { ListingCategory, ListingCondition } from "@/api/types";
 
 const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({
@@ -105,9 +105,11 @@ export function ListingForm({
   return (
     <form className="flex flex-col gap-8" onSubmit={(e) => void handleSubmit(e)} noValidate>
       <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="font-serif text-lg font-semibold text-ink">Book details</h2>
-          <p className="text-sm text-ink-muted">What is it, and what should a buyer know?</p>
+        <div className="border-t border-ink pt-3">
+          <div>
+            <h2 className="text-17 font-bold text-ink">Book details</h2>
+            <p className="text-15 text-ink-2">What is it, and what should a buyer know?</p>
+          </div>
         </div>
         <Input
           label="Title"
@@ -124,8 +126,8 @@ export function ListingForm({
           error={fieldError("author")}
         />
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="listing-description" className="text-sm font-medium text-ink">
-            Description<span aria-hidden="true" className="ml-0.5 text-clay-600">*</span>
+          <label htmlFor="listing-description" className="text-[14px] font-semibold text-ink">
+            Description<span aria-hidden="true" className="ml-0.5 text-danger">*</span>
           </label>
           <textarea
             id="listing-description"
@@ -136,10 +138,10 @@ export function ListingForm({
             aria-invalid={fieldError("description") ? true : undefined}
             aria-describedby={fieldError("description") ? "listing-description-error" : undefined}
             placeholder="Edition, any wear, why you're passing it on..."
-            className="rounded-lg border border-border-strong px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss-500/40"
+            className="rounded-xs border border-rule-strong bg-white px-3 py-2.5 text-base text-ink placeholder:text-ink-2 hover:border-ink-2 focus-visible:border-ballpoint focus-visible:outline-2 focus-visible:outline-offset-0"
           />
           {fieldError("description") && (
-            <p id="listing-description-error" role="alert" className="text-xs font-medium text-clay-600">
+            <p id="listing-description-error" role="alert" className="text-13 font-medium text-danger">
               {fieldError("description")}
             </p>
           )}
@@ -147,9 +149,11 @@ export function ListingForm({
       </section>
 
       <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="font-serif text-lg font-semibold text-ink">Category, condition & price</h2>
-          <p className="text-sm text-ink-muted">Help buyers filter to exactly what they want.</p>
+        <div className="border-t border-ink pt-3">
+          <div>
+            <h2 className="text-17 font-bold text-ink">Category, condition & price</h2>
+            <p className="text-15 text-ink-2">Help buyers filter to exactly what they want.</p>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
@@ -169,6 +173,7 @@ export function ListingForm({
             value={values.condition}
             onChange={(e) => set("condition", e.target.value as ListingCondition)}
             error={fieldError("condition")}
+            hint={values.condition ? CONDITION_DESCRIPTIONS[values.condition] : undefined}
           />
         </div>
         <Input
@@ -185,9 +190,11 @@ export function ListingForm({
       </section>
 
       <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="font-serif text-lg font-semibold text-ink">Photos</h2>
-          <p className="text-sm text-ink-muted">Listings with real photos sell faster.</p>
+        <div className="border-t border-ink pt-3">
+          <div>
+            <h2 className="text-17 font-bold text-ink">Photos</h2>
+            <p className="text-15 text-ink-2">A photo of your actual copy shows buyers what they&apos;re getting.</p>
+          </div>
         </div>
         {children}
       </section>

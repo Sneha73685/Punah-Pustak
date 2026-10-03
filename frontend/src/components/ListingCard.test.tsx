@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
@@ -51,13 +51,20 @@ describe("ListingCard", () => {
     expect(screen.getByText("Good")).toBeInTheDocument();
   });
 
-  it("renders the category and seller display name together", () => {
+  it("names who is passing the copy on, but leaves category to the detail page", () => {
+    // Copy Record redesign: "from <seller>" is part of every listing record
+    // (examine the copy, meet the reader); category stays in Browse's
+    // filters and on the detail page.
     renderCard({
       listing: makeListing({ category: "academic_textbook", seller_display_name: "Jordan" }),
     });
+    expect(screen.queryByText(/Academic textbook/)).not.toBeInTheDocument();
+    expect(screen.getByText("from Jordan")).toBeInTheDocument();
+  });
 
-    expect(screen.getByText(/Academic textbook/)).toBeInTheDocument();
-    expect(screen.getByText(/Jordan/)).toBeInTheDocument();
+  it("can leave the seller out where it is already named (More from <seller>)", () => {
+    renderCard({ listing: makeListing({ seller_display_name: "Jordan" }), showSeller: false });
+    expect(screen.queryByText(/Jordan/)).not.toBeInTheDocument();
   });
 
   it("links to the listing's own detail page", () => {
@@ -72,7 +79,7 @@ describe("ListingCard", () => {
         <ListingCard listing={makeListing({ images: [] })} />
       </MemoryRouter>,
     );
-    expect(screen.getByText("No image")).toBeInTheDocument();
+    expect(screen.getByText("No photo yet")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
 
     rerender(
@@ -88,6 +95,23 @@ describe("ListingCard", () => {
       "src",
       "https://example.com/book.jpg",
     );
+  });
+
+  it("falls back to the no-photo tile when the photo fails to load", () => {
+    render(
+      <MemoryRouter>
+        <ListingCard
+          listing={makeListing({
+            images: [{ id: "img-1", url: "https://example.com/missing.jpg", position: 0 }],
+          })}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.error(screen.getByRole("img", { name: "The Pragmatic Programmer by Hunt & Thomas" }));
+
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByText("No photo yet")).toBeInTheDocument();
   });
 
   it("only shows a status badge when showStatus is true (public browse never shows it, per FR-026)", () => {

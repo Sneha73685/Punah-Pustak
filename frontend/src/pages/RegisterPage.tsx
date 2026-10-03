@@ -1,11 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2 } from "lucide-react";
 
 import { useAuth } from "@/auth/AuthContext";
 import { AuthShell } from "@/components/AuthShell";
-import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
+import { Button, buttonClasses } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toFormErrors } from "@/lib/formErrors";
 
@@ -54,27 +52,21 @@ export function RegisterPage(): React.JSX.Element {
 
   if (isRegistered) {
     return (
-      <div className="mx-auto max-w-sm">
-        <Card padding="lg" className="flex flex-col items-center gap-3 text-center">
-          <CheckCircle2 aria-hidden="true" className="size-10 text-moss-500" />
-          <h1 className="font-serif text-xl font-semibold text-ink">Account created</h1>
-          <p className="text-sm text-ink-muted">
-            You can now{" "}
-            <Link to="/login" className="font-medium text-moss-600 hover:underline">
-              log in
-            </Link>
-            .
-          </p>
-        </Card>
-      </div>
+      <AuthShell>
+        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-ink sm:text-30">Account created</h1>
+        <p className="mt-2 text-17 text-ink-2">Your account is ready. Log in to list your first copy.</p>
+        <Link to="/login" className={buttonClasses("primary", "mt-6 w-full")}>
+          Log in
+        </Link>
+      </AuthShell>
     );
   }
 
   return (
     <AuthShell>
-      <h1 className="font-serif text-2xl font-semibold text-ink">Create your account</h1>
-      <p className="mt-1 text-sm text-ink-muted">Join Punah-Pustak to buy and sell books.</p>
-      <form className="mt-6 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)} noValidate>
+      <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-ink sm:text-30">Register</h1>
+      <p className="mt-2 text-17 text-ink-2">An account lets you list copies for other readers and manage them. You don’t need one to browse.</p>
+      <form className="mt-7 flex flex-col gap-5" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <Input
           label="Display name"
           autoComplete="name"
@@ -103,17 +95,17 @@ export function RegisterPage(): React.JSX.Element {
           error={fieldErrors.password}
         />
         {formError && (
-          <p role="alert" className="text-sm font-medium text-clay-600">
+          <p role="alert" className="text-15 font-medium text-danger">
             {formError}
           </p>
         )}
-        <Button type="submit" isLoading={isSubmitting} className="mt-2">
+        <Button type="submit" isLoading={isSubmitting} className="mt-1 w-full">
           Register
         </Button>
       </form>
-      <p className="mt-6 text-sm text-ink-muted">
+      <p className="mt-7 border-t border-rule pt-4 text-15 text-ink-2">
         Already have an account?{" "}
-        <Link to="/login" className="font-medium text-moss-600 hover:underline">
+        <Link to="/login" className="font-medium text-ballpoint underline underline-offset-4">
           Log in
         </Link>
       </p>

@@ -1,33 +1,47 @@
 import { Link } from "react-router-dom";
 
+import { useAuth } from "@/auth/AuthContext";
 import { Logo } from "@/components/Logo";
+import { cn } from "@/lib/cn";
+import { PAGE_CLASSES } from "@/lib/layout";
 
-/** FE-011 shared component: the closing section of every page, via `Layout`.
- * Purely presentational — no data fetching, no forms. */
+const LINK_CLASSES = "inline-flex min-h-11 items-center text-[14px] text-ink hover:underline hover:underline-offset-4 sm:min-h-0";
+
+/**
+ * A single ruled line rather than a second navigation hub: the wordmark,
+ * what the name means and the one fact a buyer must know (the exchange
+ * happens off-site), then a handful of links. Account links follow the
+ * session, so a signed-in reader isn't offered "Register".
+ */
 export function Footer(): React.JSX.Element {
+  const { state } = useAuth();
+  const isAuthenticated = state.status === "authenticated";
+
   return (
-    <footer className="border-t border-border bg-paper-muted">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="flex flex-col gap-2">
-          <Logo />
-          <p className="max-w-sm text-sm text-ink-muted">
-            A peer-to-peer marketplace for giving second-hand books a new reader.
-          </p>
-        </div>
-        <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-muted">
-          <Link to="/listings" className="hover:text-ink">
-            Browse books
+    <footer className="border-t border-ink">
+      <div className={cn(PAGE_CLASSES, "flex flex-col gap-3 py-6 md:flex-row md:items-baseline md:gap-10")}>
+        <Logo />
+        <p className="flex-1 text-[14px] text-ink-2">
+          <span lang="sa-Latn">punah</span>, again; <span lang="sa-Latn">pustak</span>, book. Exchange happens between
+          you and the seller, off-site.
+        </p>
+        <nav aria-label="Footer" className="flex flex-wrap gap-x-6">
+          <Link to="/listings" className={LINK_CLASSES}>
+            Browse
           </Link>
-          <Link to="/listings/new" className="hover:text-ink">
-            Sell a book
+          <Link to="/listings/new" className={LINK_CLASSES}>
+            List a copy
           </Link>
-          <Link to="/register" className="hover:text-ink">
-            Create an account
-          </Link>
+          {isAuthenticated ? (
+            <Link to="/my-listings" className={LINK_CLASSES}>
+              My listings
+            </Link>
+          ) : (
+            <Link to="/login" className={LINK_CLASSES}>
+              Log in
+            </Link>
+          )}
         </nav>
-      </div>
-      <div className="border-t border-border px-4 py-4 text-center text-xs text-ink-soft sm:px-6">
-        © {new Date().getFullYear()} Punah-Pustak. Give a book another chapter.
       </div>
     </footer>
   );

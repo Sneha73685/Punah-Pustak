@@ -10,6 +10,17 @@ import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
 import type { AdminUserPage } from "@/api/types";
 
 vi.mock("@/api/admin");
+// The page reads the session only to recognise the signed-in admin's own
+// row; these tests act as an admin whose id matches no listed target.
+const ADMIN_ID = "99999999-9999-9999-9999-999999999999";
+vi.mock("@/auth/AuthContext", () => ({
+  useAuth: () => ({
+    state: {
+      status: "authenticated",
+      user: { id: ADMIN_ID, email: "admin@example.com", display_name: "Admin", role: "admin" },
+    },
+  }),
+}));
 
 const USER_LIST: AdminUserPage = {
   items: [
@@ -93,5 +104,25 @@ describe("AdminUsersPage — suspend error handling", () => {
     await screen.findByRole("button", { name: "Reset password" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByText("Cannot suspend another admin account.")).not.toBeInTheDocument();
+  });
+
+  it("offers no moderation actions on the signed-in admin's own row", async () => {
+    vi.mocked(adminApi.listUsers).mockResolvedValue({
+      ...USER_LIST,
+      items: [
+        {
+          id: ADMIN_ID,
+          email: "admin@example.com",
+          display_name: "Admin",
+          created_at: "2026-01-01T00:00:00Z",
+          is_active: true,
+        },
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findAllByText("admin@example.com")).not.toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "Suspend" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reset password" })).not.toBeInTheDocument();
   });
 });

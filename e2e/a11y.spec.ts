@@ -43,7 +43,9 @@ test.describe("accessibility (WCAG 2.1 AA, axe-core)", () => {
 
     await test.step("browse page — unauthenticated, empty results", async () => {
       await page.goto("/listings");
-      await expect(page.getByText("No books match your filters")).toBeVisible();
+      // With no search or filters applied, an empty result means an empty
+      // marketplace, and the page says so rather than blaming filters.
+      await expect(page.getByText("Nothing is listed yet")).toBeVisible();
       await expectNoAccessibilityViolations(page, testInfo, "browse-empty");
     });
 

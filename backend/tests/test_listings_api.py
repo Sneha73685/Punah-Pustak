@@ -19,15 +19,18 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.main import app
 from app.modules.storage.dependencies import get_storage_backend
+from app.modules.users.models import RoleEnum, User
 from tests.conftest import auth_headers, register_and_login
 from tests.test_listings_service import FakeStorageBackend
 
 _LISTINGS = "/api/v1/listings"
 _MY_LISTINGS = "/api/v1/users/me/listings"
 _MY_LISTINGS_SUMMARY = "/api/v1/users/me/listings/summary"
+_ADMIN_USERS = "/api/v1/admin/users"
 
 _VALID_LISTING = {
     "title": "The Hobbit",
@@ -68,6 +71,18 @@ def _create_listing(client: TestClient, token: str, **overrides: object) -> dict
     assert response.status_code == 201, response.text
     result: dict[str, object] = response.json()
     return result
+
+
+def _make_admin(db_session: Session, client: TestClient, email: str) -> str:
+    """Mirrors `test_admin_api.py`'s helper of the same name — see that
+    module's docstring for why promotion has to go through `db_session`
+    directly rather than a self-service API path.
+    """
+    token = register_and_login(client, email)
+    user = db_session.query(User).filter(User.email == email).one()
+    user.role = RoleEnum.ADMIN
+    db_session.flush()
+    return token
 
 
 class TestBrowse:
@@ -163,6 +178,192 @@ class TestDetailVisibilityMatrix:
 
         assert response.status_code == 404
         assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+class TestDetailSellerMetadata:
+    """Frontend Phase 2's seller trust presentation: `seller_member_since`
+    and `seller_active_listings_count`, populated only by `GET
+    /listings/{id}` — see `ListingPublic.seller_member_since`'s docstring
+    for why every other `ListingPublic`-returning endpoint deliberately
+    leaves both `None`.
+    """
+
+    def test_seller_member_since_matches_the_sellers_own_account_creation(
+        self, client: TestClient
+    ) -> None:
+        token = register_and_login(client, "seller-since@example.com")
+        own_profile = client.get("/api/v1/users/me", headers=auth_headers(token))
+        assert own_profile.status_code == 200
+        listing = _create_listing(client, token)
+
+        response = client.get(f"{_LISTINGS}/{listing['id']}")
+
+        assert response.status_code == 200
+        assert response.json()["seller_member_since"] == own_profile.json()["created_at"]
+
+    def test_seller_active_listings_count_excludes_sold_and_deleted(
+        self, client: TestClient
+    ) -> None:
+        token = register_and_login(client, "seller-count@example.com")
+        available = _create_listing(client, token, title="Still Available")
+        sold = _create_listing(client, token, title="Already Sold")
+        deleted = _create_listing(client, token, title="Already Deleted")
+        client.post(f"{_LISTINGS}/{sold['id']}/sold", headers=auth_headers(token))
+        client.delete(f"{_LISTINGS}/{deleted['id']}", headers=auth_headers(token))
+
+        response = client.get(f"{_LISTINGS}/{available['id']}")
+
+        assert response.status_code == 200
+        # Only `available` itself remains available for this seller — `sold`
+        # and `deleted` must not be counted.
+        assert response.json()["seller_active_listings_count"] == 1
+
+    def test_seller_with_zero_active_listings_returns_zero_not_null_or_error(
+        self, client: TestClient
+    ) -> None:
+        token = register_and_login(client, "seller-zero@example.com")
+        listing = _create_listing(client, token)
+        client.post(f"{_LISTINGS}/{listing['id']}/sold", headers=auth_headers(token))
+
+        # FR-006a: a sold listing has no visibility restriction, still
+        # directly resolvable — including by its own now-listingless-active
+        # owner, the case this test targets.
+        response = client.get(f"{_LISTINGS}/{listing['id']}", headers=auth_headers(token))
+
+        assert response.status_code == 200
+        assert response.json()["seller_active_listings_count"] == 0
+
+    def test_seller_metadata_is_absent_from_browse_results(self, client: TestClient) -> None:
+        """Guards the N+1-avoidance design itself (see `ListingPublic`'s
+        docstring): browse must never populate these two fields, since doing
+        so would mean one extra `User` fetch and one extra aggregate `COUNT`
+        per item on a page of up to 50 results.
+        """
+        token = register_and_login(client, "seller-browse-meta@example.com")
+        _create_listing(client, token, title="Browse Metadata Check")
+
+        response = client.get(_LISTINGS)
+
+        assert response.status_code == 200
+        item = next(i for i in response.json()["items"] if i["title"] == "Browse Metadata Check")
+        assert item["seller_member_since"] is None
+        assert item["seller_active_listings_count"] is None
+
+
+class TestDetailOtherSellerListings:
+    """P1B ("more from this seller"): `seller_other_listings`, populated
+    only by `GET /listings/{id}` — same split as `TestDetailSellerMetadata`,
+    for the same N+1-avoidance reason (see `ListingPublic`'s docstring).
+    """
+
+    def test_excludes_the_current_listing_itself(self, client: TestClient) -> None:
+        token = register_and_login(client, "other-excludes-self@example.com")
+        anchor = _create_listing(client, token, title="Anchor")
+        other = _create_listing(client, token, title="Other")
+
+        response = client.get(f"{_LISTINGS}/{anchor['id']}")
+
+        assert response.status_code == 200
+        ids = [item["id"] for item in response.json()["seller_other_listings"]]
+        assert other["id"] in ids
+        assert anchor["id"] not in ids
+
+    def test_excludes_sold_and_deleted_listings(self, client: TestClient) -> None:
+        token = register_and_login(client, "other-excludes-sold-deleted@example.com")
+        anchor = _create_listing(client, token, title="Anchor")
+        available = _create_listing(client, token, title="Still Available")
+        sold = _create_listing(client, token, title="Already Sold")
+        deleted = _create_listing(client, token, title="Already Deleted")
+        client.post(f"{_LISTINGS}/{sold['id']}/sold", headers=auth_headers(token))
+        client.delete(f"{_LISTINGS}/{deleted['id']}", headers=auth_headers(token))
+
+        response = client.get(f"{_LISTINGS}/{anchor['id']}")
+
+        assert response.status_code == 200
+        titles = [item["title"] for item in response.json()["seller_other_listings"]]
+        assert titles == ["Still Available"]
+        assert available["id"] in [item["id"] for item in response.json()["seller_other_listings"]]
+
+    def test_seller_a_cannot_leak_seller_bs_listings(self, client: TestClient) -> None:
+        token_a = register_and_login(client, "other-seller-a@example.com")
+        token_b = register_and_login(client, "other-seller-b@example.com")
+        anchor = _create_listing(client, token_a, title="Seller A's Anchor")
+        _create_listing(client, token_b, title="Seller B's Book")
+
+        response = client.get(f"{_LISTINGS}/{anchor['id']}")
+
+        assert response.status_code == 200
+        titles = [item["title"] for item in response.json()["seller_other_listings"]]
+        assert titles == []
+
+    def test_zero_other_listings_is_empty_list_not_null(self, client: TestClient) -> None:
+        token = register_and_login(client, "other-zero@example.com")
+        anchor = _create_listing(client, token, title="Only Listing")
+
+        response = client.get(f"{_LISTINGS}/{anchor['id']}")
+
+        assert response.status_code == 200
+        assert response.json()["seller_other_listings"] == []
+
+    def test_suspended_sellers_other_listings_do_not_leak_through(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        """Guards the same visibility rule `ListingRepository.browse` already
+        enforces (a suspended seller's listings must never appear in a
+        public discovery surface) against this second, newer discovery
+        surface — see `list_available_by_owner`'s docstring.
+        """
+        admin_token = _make_admin(db_session, client, "other-suspend-admin@example.com")
+        seller_email = "other-suspend-target@example.com"
+        seller_token = register_and_login(client, seller_email)
+        anchor = _create_listing(client, seller_token, title="Anchor")
+        _create_listing(client, seller_token, title="Other Book")
+        seller_id = client.get("/api/v1/users/me", headers=auth_headers(seller_token)).json()["id"]
+
+        client.post(
+            f"{_ADMIN_USERS}/{seller_id}/suspend",
+            json={"reason_code": "abusive-behavior"},
+            headers=auth_headers(admin_token),
+        )
+
+        # FR-006a: the anchor listing is still directly resolvable by guests
+        # even though its seller is now suspended — only the "other
+        # listings" side channel is expected to go empty.
+        response = client.get(f"{_LISTINGS}/{anchor['id']}")
+
+        assert response.status_code == 200
+        assert response.json()["seller_other_listings"] == []
+
+    def test_is_absent_from_browse_results(self, client: TestClient) -> None:
+        """Guards the same N+1-avoidance design `TestDetailSellerMetadata`
+        already covers for the other two seller-trust fields.
+        """
+        token = register_and_login(client, "other-browse-absent@example.com")
+        _create_listing(client, token, title="Other Listings Browse Check")
+
+        response = client.get(_LISTINGS)
+
+        assert response.status_code == 200
+        item = next(
+            i for i in response.json()["items"] if i["title"] == "Other Listings Browse Check"
+        )
+        assert item["seller_other_listings"] is None
+
+    def test_respects_a_small_limit_rather_than_returning_every_other_listing(
+        self, client: TestClient
+    ) -> None:
+        token = register_and_login(client, "other-limit@example.com")
+        anchor = _create_listing(client, token, title="Anchor")
+        for i in range(5):
+            _create_listing(client, token, title=f"Other {i}")
+
+        response = client.get(f"{_LISTINGS}/{anchor['id']}")
+
+        assert response.status_code == 200
+        # Deliberately not asserting the exact number: this pins the
+        # "bounded preview, not a second browse surface" behavior without
+        # coupling the test to `_SELLER_OTHER_LISTINGS_LIMIT`'s exact value.
+        assert 0 < len(response.json()["seller_other_listings"]) < 5
 
 
 class TestCreate:

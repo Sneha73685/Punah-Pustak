@@ -59,6 +59,23 @@ class ListingPublic(BaseModel):
     maintaining two nearly-identical schemas — see IMPLEMENTATION_SUMMARY.md).
 
     FR-006: no seller contact info (email/phone) — only `seller_display_name`.
+
+    `seller_member_since`/`seller_active_listings_count` (frontend Phase 2,
+    "seller trust presentation") and `seller_other_listings` (frontend P1B,
+    "more from this seller") are populated ONLY by `GET /listings/{id}`
+    (single-listing detail) — `to_public()`, which every OTHER endpoint that
+    returns `ListingPublic` also goes through (browse, My Listings, create,
+    update, mark-sold, admin list), leaves all three `None`. That split is
+    deliberate, not an oversight: computing them requires extra queries
+    (a `User` lookup, an aggregate `COUNT`, a small bounded listing query)
+    that are free for a single detail page but would be an N+1 query
+    pattern on a page of up to 50 browse/admin results. See
+    `router.get_listing` for where they're actually filled in.
+
+    `seller_other_listings` entries are themselves `ListingPublic` values,
+    but never carry a nested `seller_other_listings` of their own (each is
+    built directly, not by re-calling the detail endpoint's logic) — this
+    is a one-level preview, not a recursive one.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -77,6 +94,9 @@ class ListingPublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     images: list[ListingImagePublic]
+    seller_member_since: datetime | None = None
+    seller_active_listings_count: int | None = None
+    seller_other_listings: list["ListingPublic"] | None = None
 
 
 class ListingStatusSummary(BaseModel):
